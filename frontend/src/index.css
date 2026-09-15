@@ -1,0 +1,159 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    /* The app is a console: it owns the viewport and scrolls its panels, not
+       the page. Smooth scrolling is opt-out for reduced-motion users below. */
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-forge-950 text-forge-100 font-sans antialiased;
+    /* Faint grid + a cyan wash at the top: the "engineering console" read,
+       cheap enough to paint on every page without a background image. */
+    background-image: theme('backgroundImage.radial-fade'), theme('backgroundImage.grid');
+    background-size: auto, theme('backgroundSize.grid');
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    @apply bg-accent/30 text-white;
+  }
+
+  /* One visible, consistent focus ring. Removing outlines without a
+     replacement is the single most common accessibility regression in a
+     dark-themed app. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-accent/70 ring-offset-2 ring-offset-forge-950;
+  }
+
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-forge-600 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-forge-500;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-xl border border-forge-700/80 bg-forge-900/70 backdrop-blur-sm shadow-panel;
+  }
+
+  .panel-hover {
+    @apply transition-colors duration-200 hover:border-forge-600 hover:bg-forge-850/80;
+  }
+
+  .stat-label {
+    @apply text-[11px] font-medium uppercase tracking-[0.14em] text-forge-400;
+  }
+
+  .stat-value {
+    @apply font-display text-2xl font-semibold tabular-nums text-forge-100;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px]
+           font-medium uppercase tracking-wide;
+  }
+
+  .link {
+    @apply text-accent underline-offset-4 transition-colors hover:text-accent-soft hover:underline;
+  }
+
+  /* A shimmering skeleton reads as "loading", where a spinner reads as
+     "blocked". Used for panels whose shape is known in advance. */
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-forge-800/70;
+  }
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-shimmer
+           bg-gradient-to-r from-transparent via-forge-700/50 to-transparent;
+  }
+
+  .prose-forge {
+    @apply text-[15px] leading-relaxed text-forge-200;
+  }
+  .prose-forge h1,
+  .prose-forge h2,
+  .prose-forge h3 {
+    @apply font-display font-semibold text-forge-100;
+  }
+  .prose-forge h2 {
+    @apply mb-2 mt-6 text-lg;
+  }
+  .prose-forge h3 {
+    @apply mb-1.5 mt-5 text-base;
+  }
+  .prose-forge p {
+    @apply mb-3;
+  }
+  .prose-forge ul {
+    @apply mb-3 ml-5 list-disc space-y-1;
+  }
+  .prose-forge ol {
+    @apply mb-3 ml-5 list-decimal space-y-1;
+  }
+  .prose-forge code {
+    @apply rounded bg-forge-800 px-1.5 py-0.5 font-mono text-[13px] text-accent-soft;
+  }
+  .prose-forge pre {
+    @apply mb-4 overflow-x-auto rounded-lg border border-forge-700 bg-forge-950/80 p-4;
+  }
+  .prose-forge pre code {
+    @apply bg-transparent p-0 text-[13px] text-forge-200;
+  }
+  .prose-forge table {
+    @apply mb-4 w-full border-collapse text-sm;
+  }
+  .prose-forge th,
+  .prose-forge td {
+    @apply border border-forge-700 px-3 py-1.5 text-left;
+  }
+  .prose-forge th {
+    @apply bg-forge-800/60 font-semibold;
+  }
+  .prose-forge strong {
+    @apply font-semibold text-forge-100;
+  }
+  .prose-forge a {
+    @apply link;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .grid-fade-mask {
+    mask-image: linear-gradient(to bottom, black 55%, transparent 100%);
+  }
+}

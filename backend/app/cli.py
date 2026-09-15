@@ -13,6 +13,7 @@ import argparse
 import asyncio
 import contextlib
 import json
+import pathlib
 import sys
 from datetime import UTC, datetime, timedelta
 
@@ -114,6 +115,7 @@ async def _simulate_history(session, profile, days: int) -> None:
     from sqlalchemy import select
 
     from app.models.content import Concept
+    from app.models.progress import LearningEvent
     from app.services.progression_service import ProgressionService
     from app.services.retention_service import RetentionService
 
@@ -138,6 +140,7 @@ async def _simulate_history(session, profile, days: int) -> None:
             progress = 1.0 - (day_offset / max(1, days))
             tier = min(10, max(1, int(2 + progress * 6 + rng.randint(-1, 1))))
             score = min(1.0, max(0.0, 0.45 + progress * 0.45 + rng.uniform(-0.2, 0.2)))
+            elapsed = rng.randint(90, 900)
             await retention.record_review(
                 profile.id,
                 [concept.slug],
@@ -146,21 +149,45 @@ async def _simulate_history(session, profile, days: int) -> None:
                 now=at,
                 confidence=min(1.0, score + rng.uniform(-0.15, 0.25)),
             )
+            # The analytics charts read LearningEvent, not ConceptProgress.
+            # Emitting them here keeps the simulated player's dashboard
+            # representative of one built by actually playing.
+            event = LearningEvent(
+                profile_id=profile.id,
+                event_type=rng.choice(["challenge_submitted", "question_answered"]),
+                concept_slug=concept.slug,
+                skill_slug=concept.skill_slug,
+                category=concept.category,
+                tier=tier,
+                score=score,
+                elapsed_seconds=elapsed,
+                payload={"simulated": True},
+            )
+            event.created_at = at
+            session.add(event)
+            profile.total_practice_seconds += elapsed
 
     from app.domain.enums import XPSource
     from app.game.xp.engine import XPGrant
 
-    await progression.award(
-        profile,
-        [XPGrant(XPSource.CHALLENGE_PASSED, 4200, "Simulated practice history")],
-        skill_slug="python",
-    )
+    # ORDER MATTERS, for the same reason it does in GradingService: `award()`
+    # evaluates badge and achievement criteria against these counters, so
+    # setting them afterwards would leave the demo player with zero badges and
+    # make the achievements screen look broken on first run.
     profile.current_streak = rng.randint(3, 12)
     profile.longest_streak = max(profile.current_streak, rng.randint(12, 40))
     profile.last_active_date = now.date()
     profile.challenges_passed = rng.randint(20, 60)
     profile.questions_answered = rng.randint(40, 120)
     profile.missions_completed = rng.randint(3, 12)
+    profile.bosses_defeated = rng.randint(0, 2)
+    profile.incidents_resolved = rng.randint(0, 3)
+
+    await progression.award(
+        profile,
+        [XPGrant(XPSource.CHALLENGE_PASSED, 4200, "Simulated practice history")],
+        skill_slug="python",
+    )
     await retention.recompute_all_skills(profile.id)
 
 
@@ -188,6 +215,28 @@ async def _content_check() -> None:
     print(f"\n{total_warnings} warning(s)")
     if failed:
         sys.exit(1)
+
+
+def _export_openapi(path: str) -> None:
+    """Write the OpenAPI schema to disk.
+
+    The frontend's contract test reads this to verify that every endpoint its
+    API client calls actually exists. Committing the schema means a backend
+    rename fails the *frontend* build, which is where the broken call lives.
+    """
+    from app.main import create_app
+
+    schema = create_app().openapi()
+    target = pathlib.Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(json.dumps(schema, indent=2, sort_keys=True) + chr(10), encoding="utf-8")
+    operations = sum(
+        1
+        for methods in schema["paths"].values()
+        for m in methods
+        if m in ("get", "post", "put", "patch", "delete")
+    )
+    print(f"✓ wrote {target} ({len(schema['paths'])} paths, {operations} operations)")
 
 
 async def _stats() -> None:
@@ -234,6 +283,9 @@ def main() -> None:
     sub.add_parser("stats", help="row counts")
     sub.add_parser("content-check", help="validate content packs without a database")
 
+    openapi = sub.add_parser("openapi", help="export the OpenAPI schema")
+    openapi.add_argument("--out", default="../openapi.json")
+
     seed = sub.add_parser("seed", help="seed skills and all content packs (idempotent)")
     seed.add_argument("--strict", action="store_true", help="fail on content warnings")
 
@@ -269,6 +321,8 @@ def main() -> None:
                     await _demo_user(args.email, args.password, args.username, args.simulate_days)
                 case "content-check":
                     await _content_check()
+                case "openapi":
+                    _export_openapi(args.out)
                 case "stats":
                     await _stats()
                 case "bootstrap":

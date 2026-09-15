@@ -345,7 +345,6 @@ class GradingService:
             feedback = _explanation_feedback(score_10, grade.missing_points)
             correct_ids = []
 
-
         self.session.add(
             QuestionAttempt(
                 profile_id=profile.id,

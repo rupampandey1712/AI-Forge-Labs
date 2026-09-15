@@ -161,12 +161,12 @@ def evaluate_criteria(
             return False
 
     if "tier_cleared_gte" in criteria:
-        threshold = int(criteria["tier_cleared_gte"])
+        tier_needed = int(criteria["tier_cleared_gte"])
         if skill_slug:
             row = skills.get(skill_slug)
-            if row is None or row.highest_tier_cleared < threshold:
+            if row is None or row.highest_tier_cleared < tier_needed:
                 return False
-        elif not any(s.highest_tier_cleared >= threshold for s in skills.values()):
+        elif not any(s.highest_tier_cleared >= tier_needed for s in skills.values()):
             return False
 
     if "skills_mastery_gte" in criteria:
@@ -210,7 +210,7 @@ def evaluate_unlocks(
         satisfied = evaluate_criteria(spec.criteria, profile, skill_map)
         # Progress is the measured axis, capped; a satisfied boolean-only rule
         # reports full progress so the bar completes.
-        value = int(current) if required > 1 else (1 if satisfied else 0)
+        value: int = int(current) if required > 1 else (1 if satisfied else 0)
         if satisfied and required > 1:
             value = max(value, int(required))
         if value != achievement_progress.get(spec.slug, 0):

@@ -1,0 +1,160 @@
+# AI Forge Labs — local stack.
+#
+#   docker compose up --build        # everything
+#   docker compose --profile ml up   # + the torch-enabled sandbox image
+#
+# Then: http://localhost:5173  (frontend)   http://localhost:8000/docs  (API)
+#
+# WHY healthchecks and `depends_on: condition: service_healthy` everywhere:
+# without them, the backend starts before Postgres is accepting connections,
+# crashes, restarts, and you spend ten minutes debugging a race instead of
+# playing the game. This is also the pattern the DevOps missions teach.
+
+name: aiforge
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: forge
+      POSTGRES_PASSWORD: forge
+      POSTGRES_DB: aiforge
+      # Speeds up initdb noticeably and is safe for a local dev database.
+      POSTGRES_INITDB_ARGS: "--auth-host=scram-sha-256"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      # `-d aiforge` matters: pg_isready succeeds against the bootstrap
+      # database before the real one exists, which makes the check lie.
+      test: ["CMD-SHELL", "pg_isready -U forge -d aiforge"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Cache only — no persistence needed, and an appendonly file would just be
+    # I/O we throw away. Everything here is rebuildable from Postgres.
+    command: redis-server --save "" --appendonly no --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    build:
+      context: ./backend
+    # A one-shot job, not a service. Running migrations in the backend's
+    # entrypoint means N replicas race to migrate; a dedicated job that must
+    # exit 0 before the backend starts is the correct shape.
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://forge:forge@postgres:5432/aiforge
+      APP_ENV: production
+      SECRET_KEY: ${SECRET_KEY:-dev-only-compose-secret-change-me-in-production-0123456789}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  seed:
+    build:
+      context: ./backend
+    command: ["python", "-m", "app.cli", "seed"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://forge:forge@postgres:5432/aiforge
+      APP_ENV: production
+      SECRET_KEY: ${SECRET_KEY:-dev-only-compose-secret-change-me-in-production-0123456789}
+      LOG_JSON: "true"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: "no"
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      APP_DEBUG: "false"
+      SECRET_KEY: ${SECRET_KEY:-dev-only-compose-secret-change-me-in-production-0123456789}
+      DATABASE_URL: postgresql+asyncpg://forge:forge@postgres:5432/aiforge
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: http://localhost:5173,http://localhost
+      LOG_JSON: "true"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # subprocess by default so the stack runs without the sandbox image
+      # built. Switch to `docker` (and mount the socket below) for real
+      # isolation — see infra/docker/sandbox.Dockerfile.
+      SANDBOX_MODE: ${SANDBOX_MODE:-subprocess}
+      SANDBOX_DOCKER_IMAGE: aiforge-sandbox:latest
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
+    # DANGER, and why it is commented out: mounting the Docker socket gives
+    # this container root on the host. It is required for SANDBOX_MODE=docker,
+    # and the correct production answer is a separate sandbox *service* with
+    # its own restricted socket proxy, not this line. Uncomment only for local
+    # experimentation, and understand what you are trading.
+    # volumes:
+    #   - /var/run/docker.sock:/var/run/docker.sock
+
+  frontend:
+    build:
+      context: ./frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  # Background worker: retention scans, leaderboard snapshots, token cleanup.
+  worker:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    command: ["python", "-m", "app.workers.scheduler"]
+    environment:
+      APP_ENV: production
+      SECRET_KEY: ${SECRET_KEY:-dev-only-compose-secret-change-me-in-production-0123456789}
+      DATABASE_URL: postgresql+asyncpg://forge:forge@postgres:5432/aiforge
+      REDIS_URL: redis://redis:6379/0
+      LOG_JSON: "true"
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+  # Built on demand: `docker compose --profile sandbox build sandbox-image`
+  sandbox-image:
+    profiles: ["sandbox"]
+    build:
+      context: ./backend
+      dockerfile: ../infra/docker/sandbox.Dockerfile
+    image: aiforge-sandbox:latest
+    # Never runs as a service; it exists so Compose can build the image.
+    command: ["python", "-c", "print('sandbox image built')"]
+    restart: "no"
+
+volumes:
+  postgres_data:
