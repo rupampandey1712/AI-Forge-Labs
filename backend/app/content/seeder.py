@@ -371,30 +371,47 @@ class Seeder:
         await self._seed_simple(specs, Project, "projects", _project_fields)
 
     async def _seed_documents(self, specs: list[DocumentSpec]) -> None:
+        """Chunk and embed every document into the vector store.
+
+        WHY chunk at seed time rather than storing documents whole: a corpus of
+        six 4KB documents stored as six rows makes retrieval meaningless — every
+        document matches every query, so precision is 1/N by construction and
+        the RAG Tower has nothing to teach. Chunking is the thing being taught,
+        so the seeded corpus has to be chunked.
+
+        The default chunk parameters here are the *starting point* players tune
+        away from. Re-ingesting with different parameters is exactly what the
+        lab does.
+        """
         if not specs:
             return
-        existing = {
-            d.slug: d
-            for d in (
-                await self.session.execute(
-                    select(KnowledgeDocument).where(
-                        KnowledgeDocument.slug.in_([s.slug for s in specs])
-                    )
-                )
-            ).scalars()
-        }
+
+        from sqlalchemy import delete
+
+        from app.ai.rag.pipeline import RAGConfig, RAGPipeline
+
+        pipeline = RAGPipeline(self.session)
+        config = RAGConfig(chunk_size=450, chunk_overlap=60, respect_structure=True)
+
         for spec in specs:
-            row = existing.get(spec.slug)
-            if row is None:
-                row = KnowledgeDocument(slug=spec.slug)
-                self.session.add(row)
-                self._bump("documents_created")
-            row.corpus = spec.corpus
-            row.title = spec.title
-            row.content = spec.content.strip()
-            row.source = spec.source
-            row.doc_metadata = spec.metadata
-            row.token_count = max(1, len(spec.content) // 4)
+            # Remove any previous chunks for this document before re-ingesting,
+            # so a re-seed with new parameters does not leave stale chunks
+            # competing in the same corpus.
+            await self.session.execute(
+                delete(KnowledgeDocument).where(KnowledgeDocument.chunk_of == spec.slug)
+            )
+            config.corpus = spec.corpus
+            rows = await pipeline.ingest(
+                corpus=spec.corpus,
+                slug=spec.slug,
+                title=spec.title,
+                content=spec.content,
+                config=config,
+                metadata=spec.metadata,
+                source=spec.source,
+            )
+            self._bump("documents_created")
+            self._bump("document_chunks", len(rows))
 
     async def _seed_simple(self, specs: list, model: Any, label: str, mapper) -> None:
         if not specs:

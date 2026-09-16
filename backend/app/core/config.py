@@ -27,6 +27,7 @@ REPO_ROOT = BACKEND_ROOT.parent
 AppEnv = Literal["development", "test", "production"]
 SandboxMode = Literal["subprocess", "docker", "disabled"]
 LLMProvider = Literal["mock", "anthropic", "openai", "gemini", "google"]
+EmbeddingProviderName = Literal["hash", "gemini", "google", "openai"]
 
 
 class Settings(BaseSettings):
@@ -86,6 +87,21 @@ class Settings(BaseSettings):
     #: Hard ceiling on tokens per request so a runaway prompt cannot generate
     #: a surprise bill. The LLM Lab teaches exactly this control.
     llm_max_tokens: int = 2048
+
+    #: "hash" is a deterministic offline embedder. It is lexical-only, and the
+    #: RAG Tower uses that limitation deliberately: players hit the paraphrase
+    #: wall, then switch providers and watch precision jump.
+    embedding_provider: EmbeddingProviderName = "hash"
+    embedding_dimensions: int = 256
+
+    # --- Labs --------------------------------------------------------------
+    #: Attention visualiser defaults. Small enough to render, large enough that
+    #: multi-head behaviour is visible.
+    attention_d_model: int = 64
+    attention_heads: int = 4
+    attention_max_tokens: int = 48
+    #: Guard on agent runs started from the UI.
+    agent_recursion_limit: int = 25
 
     # --- Observability -----------------------------------------------------
     log_level: str = "INFO"

@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "aiforge-backend"
 version = "0.1.0"
 description = "AI Forge Labs â€” Python & AI Engineering RPG backend"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 readme = "../README.md"
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -112,7 +112,10 @@ filterwarnings = ["ignore::DeprecationWarning:passlib.*"]
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 [tool.mypy]
-python_version = "3.11"
+# Pinned to the version CI actually runs. Declaring 3.11 here was a support
+# claim nothing verified, and numpy's bundled stubs use 3.12 `type` statements,
+# so mypy could not even start under 3.11.
+python_version = "3.12"
 plugins = ["pydantic.mypy"]
 ignore_missing_imports = true
 warn_redundant_casts = true

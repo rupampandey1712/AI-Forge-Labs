@@ -9,12 +9,13 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from app.content.packs import meta, python_core
+from app.content.packs import corpus, meta, python_core
 from app.content.schema import ContentPack
 
 #: Ordered registry. Foundations first.
 _PACK_MODULES = (
     python_core,
+    corpus,
     meta,
 )
 

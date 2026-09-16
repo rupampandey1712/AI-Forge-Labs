@@ -25,7 +25,7 @@ from app.api.middleware import (
     RequestContextMiddleware,
     SecurityHeadersMiddleware,
 )
-from app.api.routes import auth, content, gameplay, health, player
+from app.api.routes import auth, content, gameplay, health, labs, player
 from app.core.config import settings
 from app.core.errors import ForgeError
 from app.core.logging import configure_logging, get_logger
@@ -49,6 +49,13 @@ TAGS_METADATA = [
     {"name": "player", "description": "Profile, world map, skill trees, badges, leaderboard."},
     {"name": "content", "description": "Concepts, challenges, questions and code execution."},
     {"name": "gameplay", "description": "Missions, dailies, retention, interviews, analytics."},
+    {
+        "name": "labs",
+        "description": (
+            "Interactive labs: attention visualiser, RAG tuning bench, agent inspector, "
+            "AI mentor and the evaluation harness. Every one works offline."
+        ),
+    },
     {"name": "health", "description": "Liveness and readiness probes."},
 ]
 
@@ -131,6 +138,7 @@ def create_app(**overrides: Any) -> FastAPI:
     app.include_router(player.router, prefix=prefix)
     app.include_router(content.router, prefix=prefix)
     app.include_router(gameplay.router, prefix=prefix)
+    app.include_router(labs.router, prefix=prefix)
 
     @app.get("/", include_in_schema=False)
     async def root() -> dict[str, str]:

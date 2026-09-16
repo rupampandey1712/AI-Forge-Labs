@@ -76,6 +76,321 @@
         "title": "AchievementOut",
         "type": "object"
       },
+      "AgentResumeRequest": {
+        "properties": {
+          "approved": {
+            "default": true,
+            "title": "Approved",
+            "type": "boolean"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Note",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "title": "AgentResumeRequest",
+        "type": "object"
+      },
+      "AgentRunRequest": {
+        "properties": {
+          "graph": {
+            "default": "support_agent",
+            "title": "Graph",
+            "type": "string"
+          },
+          "initial_state": {
+            "additionalProperties": true,
+            "title": "Initial State",
+            "type": "object"
+          },
+          "question": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Question",
+            "type": "string"
+          },
+          "recursion_limit": {
+            "default": 25,
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Recursion Limit",
+            "type": "integer"
+          },
+          "save_run": {
+            "default": true,
+            "title": "Save Run",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "AgentRunRequest",
+        "type": "object"
+      },
+      "AgentRunResponse": {
+        "properties": {
+          "diagnosis": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Diagnosis",
+            "type": "array"
+          },
+          "final_state": {
+            "additionalProperties": true,
+            "title": "Final State",
+            "type": "object"
+          },
+          "graph": {
+            "title": "Graph",
+            "type": "string"
+          },
+          "halted_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Halted Reason"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/StepOut"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "interrupted_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interrupted At"
+          },
+          "looped": {
+            "title": "Looped",
+            "type": "boolean"
+          },
+          "node_visits": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Node Visits",
+            "type": "object"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "steps": {
+            "title": "Steps",
+            "type": "integer"
+          },
+          "total_ms": {
+            "title": "Total Ms",
+            "type": "number"
+          }
+        },
+        "required": [
+          "graph",
+          "status",
+          "final_state",
+          "history",
+          "steps",
+          "total_ms",
+          "node_visits",
+          "looped"
+        ],
+        "title": "AgentRunResponse",
+        "type": "object"
+      },
+      "AttentionHeadOut": {
+        "properties": {
+          "argmax": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Argmax",
+            "type": "array"
+          },
+          "entropy": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Entropy",
+            "type": "array"
+          },
+          "head": {
+            "title": "Head",
+            "type": "integer"
+          },
+          "raw_scores": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Raw Scores",
+            "type": "array"
+          },
+          "weights": {
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Weights",
+            "type": "array"
+          }
+        },
+        "required": [
+          "head",
+          "weights",
+          "raw_scores",
+          "entropy",
+          "argmax"
+        ],
+        "title": "AttentionHeadOut",
+        "type": "object"
+      },
+      "AttentionRequest": {
+        "properties": {
+          "causal": {
+            "default": false,
+            "title": "Causal",
+            "type": "boolean"
+          },
+          "d_model": {
+            "default": 64,
+            "maximum": 256.0,
+            "minimum": 16.0,
+            "title": "D Model",
+            "type": "integer"
+          },
+          "n_heads": {
+            "default": 4,
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "N Heads",
+            "type": "integer"
+          },
+          "scaled": {
+            "default": true,
+            "title": "Scaled",
+            "type": "boolean"
+          },
+          "text": {
+            "default": "The cat sat on the mat",
+            "maxLength": 400,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "use_positional": {
+            "default": true,
+            "title": "Use Positional",
+            "type": "boolean"
+          }
+        },
+        "title": "AttentionRequest",
+        "type": "object"
+      },
+      "AttentionResponse": {
+        "properties": {
+          "causal": {
+            "title": "Causal",
+            "type": "boolean"
+          },
+          "d_head": {
+            "title": "D Head",
+            "type": "integer"
+          },
+          "d_model": {
+            "title": "D Model",
+            "type": "integer"
+          },
+          "heads": {
+            "items": {
+              "$ref": "#/components/schemas/AttentionHeadOut"
+            },
+            "title": "Heads",
+            "type": "array"
+          },
+          "insight": {
+            "default": "",
+            "title": "Insight",
+            "type": "string"
+          },
+          "n_heads": {
+            "title": "N Heads",
+            "type": "integer"
+          },
+          "scaled": {
+            "title": "Scaled",
+            "type": "boolean"
+          },
+          "tokens": {
+            "items": {
+              "$ref": "#/components/schemas/TokenOut"
+            },
+            "title": "Tokens",
+            "type": "array"
+          },
+          "vectors": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Vectors"
+          }
+        },
+        "required": [
+          "tokens",
+          "d_model",
+          "n_heads",
+          "d_head",
+          "causal",
+          "scaled",
+          "heads"
+        ],
+        "title": "AttentionResponse",
+        "type": "object"
+      },
       "AuthResponse": {
         "properties": {
           "tokens": {
@@ -502,6 +817,119 @@
           "new_password"
         ],
         "title": "ChangePasswordRequest",
+        "type": "object"
+      },
+      "ChunkOut": {
+        "properties": {
+          "chars": {
+            "title": "Chars",
+            "type": "integer"
+          },
+          "end_char": {
+            "title": "End Char",
+            "type": "integer"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "start_char": {
+            "title": "Start Char",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "tokens": {
+            "title": "Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "index",
+          "text",
+          "start_char",
+          "end_char",
+          "chars",
+          "tokens"
+        ],
+        "title": "ChunkOut",
+        "type": "object"
+      },
+      "ChunkPreviewRequest": {
+        "properties": {
+          "chunk_overlap": {
+            "default": 50,
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Chunk Overlap",
+            "type": "integer"
+          },
+          "chunk_size": {
+            "default": 400,
+            "maximum": 4000.0,
+            "minimum": 50.0,
+            "title": "Chunk Size",
+            "type": "integer"
+          },
+          "respect_structure": {
+            "default": true,
+            "title": "Respect Structure",
+            "type": "boolean"
+          },
+          "text": {
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ChunkPreviewRequest",
+        "type": "object"
+      },
+      "ChunkPreviewResponse": {
+        "properties": {
+          "avg_chars": {
+            "title": "Avg Chars",
+            "type": "number"
+          },
+          "avg_tokens": {
+            "title": "Avg Tokens",
+            "type": "number"
+          },
+          "chunks": {
+            "items": {
+              "$ref": "#/components/schemas/ChunkOut"
+            },
+            "title": "Chunks",
+            "type": "array"
+          },
+          "insight": {
+            "default": "",
+            "title": "Insight",
+            "type": "string"
+          },
+          "overlap_waste_chars": {
+            "title": "Overlap Waste Chars",
+            "type": "integer"
+          },
+          "total_chunks": {
+            "title": "Total Chunks",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "chunks",
+          "total_chunks",
+          "avg_chars",
+          "avg_tokens",
+          "overlap_waste_chars"
+        ],
+        "title": "ChunkPreviewResponse",
         "type": "object"
       },
       "ConceptDecayOut": {
@@ -1135,6 +1563,391 @@
         "title": "DecayAlertOut",
         "type": "object"
       },
+      "EvalCase": {
+        "description": "One golden-set row.\n\nWHY a TypedDict rather than a bare dict: mypy widens a dict literal whose\nvalues mix ``str`` and ``list[str]`` to ``Sequence[str]``, so every later\n``case[\"question\"]`` looked like a sequence of strings and the real contract\nwas invisible. This costs nothing at runtime \u2014 it is still a plain dict \u2014\nand it is the shape a player writing their own eval set must produce.",
+        "properties": {
+          "expected": {
+            "title": "Expected",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "relevant": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Relevant",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question",
+          "relevant",
+          "expected"
+        ],
+        "title": "EvalCase",
+        "type": "object"
+      },
+      "EvalCaseIn": {
+        "properties": {
+          "expected_answer": {
+            "default": "",
+            "title": "Expected Answer",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "relevant_doc_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Relevant Doc Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "EvalCaseIn",
+        "type": "object"
+      },
+      "EvalCaseResult": {
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Metrics",
+            "type": "object"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "retrieved_titles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Retrieved Titles",
+            "type": "array"
+          },
+          "unsupported_claims": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Unsupported Claims",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question",
+          "answer",
+          "passed",
+          "metrics"
+        ],
+        "title": "EvalCaseResult",
+        "type": "object"
+      },
+      "EvalRunRequest": {
+        "properties": {
+          "baseline_evaluation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Evaluation Id"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/EvalCaseIn"
+            },
+            "title": "Cases",
+            "type": "array"
+          },
+          "config": {
+            "$ref": "#/components/schemas/RAGConfigIn"
+          },
+          "name": {
+            "default": "experiment",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "use_golden_set": {
+            "default": true,
+            "title": "Use Golden Set",
+            "type": "boolean"
+          },
+          "use_llm_judge": {
+            "default": false,
+            "title": "Use Llm Judge",
+            "type": "boolean"
+          }
+        },
+        "title": "EvalRunRequest",
+        "type": "object"
+      },
+      "EvalRunResponse": {
+        "properties": {
+          "baseline": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline"
+          },
+          "cases_passed": {
+            "title": "Cases Passed",
+            "type": "integer"
+          },
+          "cases_total": {
+            "title": "Cases Total",
+            "type": "integer"
+          },
+          "evaluation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evaluation Id"
+          },
+          "judged_by": {
+            "default": "deterministic",
+            "title": "Judged By",
+            "type": "string"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Metrics",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "per_case": {
+            "items": {
+              "$ref": "#/components/schemas/EvalCaseResult"
+            },
+            "title": "Per Case",
+            "type": "array"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "cases_total",
+          "cases_passed",
+          "metrics",
+          "per_case",
+          "verdict"
+        ],
+        "title": "EvalRunResponse",
+        "type": "object"
+      },
+      "GenerateQuestionRequest": {
+        "properties": {
+          "concept_slug": {
+            "title": "Concept Slug",
+            "type": "string"
+          },
+          "count": {
+            "default": 1,
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "kind": {
+            "default": "explain",
+            "title": "Kind",
+            "type": "string"
+          },
+          "tier": {
+            "default": 5,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Tier",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "concept_slug"
+        ],
+        "title": "GenerateQuestionRequest",
+        "type": "object"
+      },
+      "GenerateQuestionResponse": {
+        "properties": {
+          "accepted": {
+            "title": "Accepted",
+            "type": "integer"
+          },
+          "concept_slug": {
+            "title": "Concept Slug",
+            "type": "string"
+          },
+          "concept_title": {
+            "title": "Concept Title",
+            "type": "string"
+          },
+          "generated": {
+            "items": {
+              "$ref": "#/components/schemas/GeneratedQuestionOut"
+            },
+            "title": "Generated",
+            "type": "array"
+          },
+          "rejected": {
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "validation_note": {
+            "default": "",
+            "title": "Validation Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "concept_slug",
+          "concept_title",
+          "generated",
+          "accepted",
+          "rejected"
+        ],
+        "title": "GenerateQuestionResponse",
+        "type": "object"
+      },
+      "GeneratedQuestionOut": {
+        "properties": {
+          "common_wrong_answer": {
+            "default": "",
+            "title": "Common Wrong Answer",
+            "type": "string"
+          },
+          "context": {
+            "default": "",
+            "title": "Context",
+            "type": "string"
+          },
+          "expected_answer": {
+            "default": "",
+            "title": "Expected Answer",
+            "type": "string"
+          },
+          "followups": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Followups",
+            "type": "array"
+          },
+          "hints": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Hints",
+            "type": "array"
+          },
+          "ideal_senior_answer": {
+            "default": "",
+            "title": "Ideal Senior Answer",
+            "type": "string"
+          },
+          "is_usable": {
+            "default": false,
+            "title": "Is Usable",
+            "type": "boolean"
+          },
+          "issues": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Issues",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "options": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Options",
+            "type": "array"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "rubric": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Rubric",
+            "type": "array"
+          },
+          "simulated": {
+            "default": false,
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "tier": {
+            "title": "Tier",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "prompt",
+          "kind",
+          "tier"
+        ],
+        "title": "GeneratedQuestionOut",
+        "type": "object"
+      },
       "GradeOut": {
         "description": "Uniform grading envelope for every gradeable interaction.\n\nFailure is framed as an incident, not a buzzer (spec \u00a764): ``headline``,\n``what_happened`` and ``root_cause`` are populated on failure so the UI can\nrender a postmortem card instead of the word \"Wrong\".",
         "properties": {
@@ -1347,6 +2160,133 @@
           "score"
         ],
         "title": "GradeOut",
+        "type": "object"
+      },
+      "GraphDiagramOut": {
+        "properties": {
+          "cycles": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Cycles",
+            "type": "array"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/GraphEdgeOut"
+            },
+            "title": "Edges",
+            "type": "array"
+          },
+          "entry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry"
+          },
+          "info": {
+            "additionalProperties": true,
+            "title": "Info",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/GraphNodeOut"
+            },
+            "title": "Nodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "entry",
+          "nodes",
+          "edges"
+        ],
+        "title": "GraphDiagramOut",
+        "type": "object"
+      },
+      "GraphEdgeOut": {
+        "properties": {
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "default": "",
+            "title": "Label",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "target",
+          "kind"
+        ],
+        "title": "GraphEdgeOut",
+        "type": "object"
+      },
+      "GraphNodeOut": {
+        "properties": {
+          "description": {
+            "default": "",
+            "title": "Description",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "interrupt_before": {
+            "default": false,
+            "title": "Interrupt Before",
+            "type": "boolean"
+          },
+          "is_entry": {
+            "default": false,
+            "title": "Is Entry",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "kind"
+        ],
+        "title": "GraphNodeOut",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -2165,6 +3105,161 @@
           "peak_mastery"
         ],
         "title": "MasteryRow",
+        "type": "object"
+      },
+      "MentorAskRequest": {
+        "properties": {
+          "attempts": {
+            "default": 0,
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "challenge_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Challenge Slug"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "concept_slug": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Concept Slug"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "hints_used": {
+            "default": 0,
+            "maximum": 20.0,
+            "minimum": 0.0,
+            "title": "Hints Used",
+            "type": "integer"
+          },
+          "persona": {
+            "default": "senior_engineer",
+            "title": "Persona",
+            "type": "string"
+          },
+          "question": {
+            "maxLength": 4000,
+            "minLength": 3,
+            "title": "Question",
+            "type": "string"
+          },
+          "tier": {
+            "default": 5,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Tier",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "MentorAskRequest",
+        "type": "object"
+      },
+      "MentorResponseOut": {
+        "properties": {
+          "cost_usd": {
+            "default": 0.0,
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "level": {
+            "title": "Level",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "next_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Level"
+          },
+          "question_back": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Back"
+          },
+          "reveals_answer": {
+            "title": "Reveals Answer",
+            "type": "boolean"
+          },
+          "simulated": {
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "tokens": {
+            "default": 0,
+            "title": "Tokens",
+            "type": "integer"
+          },
+          "trace": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Trace",
+            "type": "array"
+          }
+        },
+        "required": [
+          "level",
+          "message",
+          "reveals_answer",
+          "simulated"
+        ],
+        "title": "MentorResponseOut",
         "type": "object"
       },
       "Message": {
@@ -3355,6 +4450,364 @@
         "title": "QuestionSubmission",
         "type": "object"
       },
+      "RAGCompareResponse": {
+        "properties": {
+          "delta": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Delta",
+            "type": "object"
+          },
+          "experiments": {
+            "items": {
+              "$ref": "#/components/schemas/RAGExperimentOut"
+            },
+            "title": "Experiments",
+            "type": "array"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "verdict": {
+            "default": "hold",
+            "title": "Verdict",
+            "type": "string"
+          }
+        },
+        "required": [
+          "experiments"
+        ],
+        "title": "RAGCompareResponse",
+        "type": "object"
+      },
+      "RAGConfigIn": {
+        "properties": {
+          "chunk_overlap": {
+            "default": 50,
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Chunk Overlap",
+            "type": "integer"
+          },
+          "chunk_size": {
+            "default": 400,
+            "maximum": 4000.0,
+            "minimum": 50.0,
+            "title": "Chunk Size",
+            "type": "integer"
+          },
+          "corpus": {
+            "default": "forge-docs",
+            "title": "Corpus",
+            "type": "string"
+          },
+          "max_context_chars": {
+            "default": 6000,
+            "maximum": 32000.0,
+            "minimum": 200.0,
+            "title": "Max Context Chars",
+            "type": "integer"
+          },
+          "metadata_filter": {
+            "additionalProperties": true,
+            "title": "Metadata Filter",
+            "type": "object"
+          },
+          "min_score": {
+            "default": 0.0,
+            "maximum": 1.0,
+            "minimum": -1.0,
+            "title": "Min Score",
+            "type": "number"
+          },
+          "prompt_template": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Prompt Template",
+            "type": "string"
+          },
+          "respect_structure": {
+            "default": true,
+            "title": "Respect Structure",
+            "type": "boolean"
+          },
+          "temperature": {
+            "default": 0.1,
+            "maximum": 2.0,
+            "minimum": 0.0,
+            "title": "Temperature",
+            "type": "number"
+          },
+          "top_k": {
+            "default": 4,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "type": "integer"
+          },
+          "use_hybrid": {
+            "default": false,
+            "title": "Use Hybrid",
+            "type": "boolean"
+          },
+          "use_reranker": {
+            "default": false,
+            "title": "Use Reranker",
+            "type": "boolean"
+          }
+        },
+        "title": "RAGConfigIn",
+        "type": "object"
+      },
+      "RAGCorpusOut": {
+        "properties": {
+          "chunks": {
+            "title": "Chunks",
+            "type": "integer"
+          },
+          "corpus": {
+            "title": "Corpus",
+            "type": "string"
+          },
+          "documents": {
+            "title": "Documents",
+            "type": "integer"
+          },
+          "embedding_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Model"
+          },
+          "titles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Titles",
+            "type": "array"
+          },
+          "total_tokens": {
+            "title": "Total Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "corpus",
+          "documents",
+          "chunks",
+          "embedding_model",
+          "total_tokens"
+        ],
+        "title": "RAGCorpusOut",
+        "type": "object"
+      },
+      "RAGExperimentOut": {
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "chunk_overlap": {
+            "title": "Chunk Overlap",
+            "type": "integer"
+          },
+          "chunk_size": {
+            "title": "Chunk Size",
+            "type": "integer"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "embedding_model": {
+            "title": "Embedding Model",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "number"
+          },
+          "metrics": {
+            "additionalProperties": true,
+            "title": "Metrics",
+            "type": "object"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "top_k": {
+            "title": "Top K",
+            "type": "integer"
+          },
+          "use_hybrid": {
+            "title": "Use Hybrid",
+            "type": "boolean"
+          },
+          "use_reranker": {
+            "title": "Use Reranker",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "question",
+          "chunk_size",
+          "chunk_overlap",
+          "top_k",
+          "use_reranker",
+          "use_hybrid",
+          "embedding_model",
+          "answer",
+          "metrics",
+          "latency_ms",
+          "created_at"
+        ],
+        "title": "RAGExperimentOut",
+        "type": "object"
+      },
+      "RAGQueryRequest": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/RAGConfigIn"
+          },
+          "expected_answer": {
+            "default": "",
+            "title": "Expected Answer",
+            "type": "string"
+          },
+          "question": {
+            "maxLength": 2000,
+            "minLength": 3,
+            "title": "Question",
+            "type": "string"
+          },
+          "relevant_doc_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Relevant Doc Ids",
+            "type": "array"
+          },
+          "save_experiment": {
+            "default": true,
+            "title": "Save Experiment",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "title": "RAGQueryRequest",
+        "type": "object"
+      },
+      "RAGQueryResponse": {
+        "properties": {
+          "answer": {
+            "title": "Answer",
+            "type": "string"
+          },
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          },
+          "cost_usd": {
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "diagnosis": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Diagnosis",
+            "type": "array"
+          },
+          "experiment_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Experiment Id"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Metrics",
+            "type": "object"
+          },
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "retrieved": {
+            "items": {
+              "$ref": "#/components/schemas/RetrievedChunkOut"
+            },
+            "title": "Retrieved",
+            "type": "array"
+          },
+          "simulated": {
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/StageOut"
+            },
+            "title": "Stages",
+            "type": "array"
+          },
+          "token_usage": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Token Usage",
+            "type": "object"
+          },
+          "total_ms": {
+            "title": "Total Ms",
+            "type": "number"
+          }
+        },
+        "required": [
+          "question",
+          "answer",
+          "retrieved",
+          "config",
+          "stages",
+          "prompt",
+          "total_ms",
+          "token_usage",
+          "cost_usd",
+          "simulated"
+        ],
+        "title": "RAGQueryResponse",
+        "type": "object"
+      },
       "ReadinessBreakdown": {
         "description": "Why a readiness number is what it is \u2014 never show a score without this.",
         "properties": {
@@ -3552,6 +5005,219 @@
           "concepts_critical"
         ],
         "title": "RetentionDashboardOut",
+        "type": "object"
+      },
+      "RetrievedChunkOut": {
+        "properties": {
+          "chunk_index": {
+            "title": "Chunk Index",
+            "type": "integer"
+          },
+          "doc_slug": {
+            "title": "Doc Slug",
+            "type": "string"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "original_rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Rank"
+          },
+          "rerank_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rerank Score"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "doc_slug",
+          "title",
+          "text",
+          "score",
+          "chunk_index"
+        ],
+        "title": "RetrievedChunkOut",
+        "type": "object"
+      },
+      "SamplingRequest": {
+        "properties": {
+          "labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          },
+          "logits": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logits"
+          },
+          "temperature": {
+            "default": 1.0,
+            "maximum": 3.0,
+            "minimum": 0.01,
+            "title": "Temperature",
+            "type": "number"
+          },
+          "top_k": {
+            "anyOf": [
+              {
+                "maximum": 50.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top K"
+          },
+          "top_p": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Top P"
+          }
+        },
+        "title": "SamplingRequest",
+        "type": "object"
+      },
+      "SamplingResponse": {
+        "properties": {
+          "argmax": {
+            "title": "Argmax",
+            "type": "string"
+          },
+          "entropy": {
+            "title": "Entropy",
+            "type": "number"
+          },
+          "final_probabilities": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Final Probabilities",
+            "type": "array"
+          },
+          "insight": {
+            "default": "",
+            "title": "Insight",
+            "type": "string"
+          },
+          "kept": {
+            "items": {
+              "type": "boolean"
+            },
+            "title": "Kept",
+            "type": "array"
+          },
+          "labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "logits": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Logits",
+            "type": "array"
+          },
+          "probabilities": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Probabilities",
+            "type": "array"
+          },
+          "scaled_logits": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Scaled Logits",
+            "type": "array"
+          },
+          "temperature": {
+            "title": "Temperature",
+            "type": "number"
+          },
+          "tokens_kept": {
+            "title": "Tokens Kept",
+            "type": "integer"
+          },
+          "truncation": {
+            "title": "Truncation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "labels",
+          "logits",
+          "temperature",
+          "scaled_logits",
+          "probabilities",
+          "final_probabilities",
+          "kept",
+          "tokens_kept",
+          "truncation",
+          "entropy",
+          "argmax"
+        ],
+        "title": "SamplingResponse",
         "type": "object"
       },
       "SkillNodeOut": {
@@ -3806,6 +5472,175 @@
         "title": "SkillTreeOut",
         "type": "object"
       },
+      "SocraticRequest": {
+        "properties": {
+          "concept_slug": {
+            "title": "Concept Slug",
+            "type": "string"
+          },
+          "player_answer": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Player Answer",
+            "type": "string"
+          },
+          "tier": {
+            "default": 5,
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Tier",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "concept_slug",
+          "player_answer"
+        ],
+        "title": "SocraticRequest",
+        "type": "object"
+      },
+      "SocraticResponse": {
+        "properties": {
+          "good_answer_contains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Good Answer Contains",
+            "type": "array"
+          },
+          "question": {
+            "title": "Question",
+            "type": "string"
+          },
+          "simulated": {
+            "title": "Simulated",
+            "type": "boolean"
+          },
+          "targets_misconception": {
+            "title": "Targets Misconception",
+            "type": "string"
+          },
+          "tier": {
+            "title": "Tier",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "question",
+          "targets_misconception",
+          "good_answer_contains",
+          "tier",
+          "simulated"
+        ],
+        "title": "SocraticResponse",
+        "type": "object"
+      },
+      "StageOut": {
+        "properties": {
+          "detail": {
+            "additionalProperties": true,
+            "title": "Detail",
+            "type": "object"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "duration_ms"
+        ],
+        "title": "StageOut",
+        "type": "object"
+      },
+      "StepOut": {
+        "properties": {
+          "cost_usd": {
+            "default": 0.0,
+            "title": "Cost Usd",
+            "type": "number"
+          },
+          "duration_ms": {
+            "title": "Duration Ms",
+            "type": "number"
+          },
+          "edge_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edge Reason"
+          },
+          "edge_taken": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edge Taken"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "node": {
+            "title": "Node",
+            "type": "string"
+          },
+          "state_after": {
+            "additionalProperties": true,
+            "title": "State After",
+            "type": "object"
+          },
+          "state_diff": {
+            "additionalProperties": true,
+            "title": "State Diff",
+            "type": "object"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "step": {
+            "title": "Step",
+            "type": "integer"
+          },
+          "tokens": {
+            "default": 0,
+            "title": "Tokens",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "step",
+          "node",
+          "status",
+          "duration_ms",
+          "state_diff",
+          "state_after"
+        ],
+        "title": "StepOut",
+        "type": "object"
+      },
       "TestCaseOut": {
         "description": "A *visible* test case. Hidden cases are filtered out by the service.",
         "properties": {
@@ -3913,6 +5748,39 @@
         "title": "TimeSeriesPoint",
         "type": "object"
       },
+      "TokenOut": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "is_subword": {
+            "title": "Is Subword",
+            "type": "boolean"
+          },
+          "of_word": {
+            "title": "Of Word",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "index",
+          "id",
+          "is_subword",
+          "of_word"
+        ],
+        "title": "TokenOut",
+        "type": "object"
+      },
       "TokenPair": {
         "properties": {
           "access_token": {
@@ -3939,6 +5807,51 @@
           "expires_in"
         ],
         "title": "TokenPair",
+        "type": "object"
+      },
+      "TokenizeRequest": {
+        "properties": {
+          "text": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "TokenizeRequest",
+        "type": "object"
+      },
+      "TokenizeResponse": {
+        "properties": {
+          "cost_estimates": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Cost Estimates",
+            "type": "array"
+          },
+          "stats": {
+            "additionalProperties": true,
+            "title": "Stats",
+            "type": "object"
+          },
+          "tokens": {
+            "items": {
+              "$ref": "#/components/schemas/TokenOut"
+            },
+            "title": "Tokens",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tokens",
+          "stats"
+        ],
+        "title": "TokenizeResponse",
         "type": "object"
       },
       "UserPublic": {
@@ -5566,6 +7479,705 @@
         ]
       }
     },
+    "/api/v1/labs/agents": {
+      "get": {
+        "operationId": "list_graphs_api_v1_labs_agents_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response List Graphs Api V1 Labs Agents Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Graphs",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/agents/resume": {
+      "post": {
+        "description": "Approve or reject a run paused at a human-in-the-loop checkpoint.",
+        "operationId": "resume_agent_api_v1_labs_agents_resume_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentResumeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Resume Agent Api V1 Labs Agents Resume Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Resume Agent",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/agents/run": {
+      "post": {
+        "description": "Execute a graph and return the state diff at every step.",
+        "operationId": "run_agent_api_v1_labs_agents_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Run Agent",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/agents/{slug}": {
+      "get": {
+        "description": "The topology, **before** running anything.\n\nInspecting a graph without executing it is the difference between debugging\na diagram and debugging a stack trace. Cycles are reported \u2014 a cycle is not\na bug, but every one needs a termination argument.",
+        "operationId": "graph_diagram_api_v1_labs_agents__slug__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "title": "Slug",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphDiagramOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Graph Diagram",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/evals/run": {
+      "post": {
+        "description": "Run a configuration against a golden set and decide ship / hold / rollback.\n\nRegression against a baseline outranks absolute thresholds: a system that\ngot worse is a rollback even when it still clears the gate, because the next\nchange will make it worse again.",
+        "operationId": "run_evaluation_api_v1_labs_evals_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvalRunRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalRunResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Run Evaluation",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/mentor/ask": {
+      "post": {
+        "description": "Escalating help \u2014 never the answer before it is earned (spec \u00a758).\n\nThe response includes the mentor's own graph trace, so the tool that is\nhelping you can be inspected in the same Agent Inspector it is built on.",
+        "operationId": "ask_mentor_api_v1_labs_mentor_ask_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MentorAskRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MentorResponseOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Ask Mentor",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/mentor/generate": {
+      "post": {
+        "description": "Generate practice questions from a concept \u2014 and validate them.\n\nGenerated content is held to the *same* bar as hand-authored content,\nincluding the check that the generated ideal answer scores at least 0.6\ncorrectness against its own generated rubric. Rejected questions are\nreturned with their reasons rather than hidden, because seeing what a model\ngets wrong about question design is itself instructive.",
+        "operationId": "generate_questions_api_v1_labs_mentor_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GenerateQuestionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GenerateQuestionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Generate Questions",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/mentor/socratic": {
+      "post": {
+        "description": "Ask the follow-up that reveals whether the player understood or pattern-matched.",
+        "operationId": "socratic_api_v1_labs_mentor_socratic_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SocraticRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SocraticResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Socratic",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/rag/chunk-preview": {
+      "post": {
+        "description": "Preview chunking without embedding anything.\n\nFast enough to drive a live slider, which is the point: seeing chunk\nboundaries move as you drag is how the trade-off becomes intuitive.",
+        "operationId": "chunk_preview_api_v1_labs_rag_chunk_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChunkPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChunkPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Chunk Preview",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/rag/corpora": {
+      "get": {
+        "operationId": "corpora_api_v1_labs_rag_corpora_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RAGCorpusOut"
+                  },
+                  "title": "Response Corpora Api V1 Labs Rag Corpora Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Corpora",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/rag/experiments": {
+      "get": {
+        "description": "Past runs, with the delta between the two most recent and a ship verdict.",
+        "operationId": "rag_experiments_api_v1_labs_rag_experiments_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RAGCompareResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rag Experiments",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/rag/golden-set": {
+      "get": {
+        "description": "The built-in evaluation cases.\n\nDeliberately readable: a golden set you cannot inspect and disagree with is\none you should not be gating deploys on.",
+        "operationId": "golden_set_api_v1_labs_rag_golden_set_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EvalCase"
+                  },
+                  "title": "Response Golden Set Api V1 Labs Rag Golden Set Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Golden Set",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/rag/query": {
+      "post": {
+        "description": "Run the full pipeline and return every stage, every score, and a diagnosis.",
+        "operationId": "rag_query_api_v1_labs_rag_query_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RAGQueryRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RAGQueryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Rag Query",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/status": {
+      "get": {
+        "description": "Which labs are fully live versus running on the offline stubs.",
+        "operationId": "lab_status_api_v1_labs_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Lab Status Api V1 Labs Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Lab Status",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/transformer/attention": {
+      "post": {
+        "description": "Compute one multi-head self-attention block and return every intermediate.\n\nEvery number is really computed \u2014 real embeddings, real positional encoding,\nreal Q\u00b7K\u1d40/\u221ad, real softmax. The projections are deterministic pseudo-random\nrather than trained, and the response says so: the mechanism is genuine, the\nlearned behaviour is not.",
+        "operationId": "attention_api_v1_labs_transformer_attention_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AttentionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttentionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Attention",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/transformer/sampling": {
+      "post": {
+        "description": "Show what temperature, top-k and top-p do to the same distribution.",
+        "operationId": "sampling_api_v1_labs_transformer_sampling_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SamplingRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SamplingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sampling",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
+    "/api/v1/labs/transformer/tokenize": {
+      "post": {
+        "description": "Tokenize text and price it.\n\nCost is reported per million requests as well as per request, because\nper-request pennies are exactly why token bloat goes unnoticed until the\ninvoice arrives.",
+        "operationId": "tokenize_api_v1_labs_transformer_tokenize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenizeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenizeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Tokenize",
+        "tags": [
+          "labs"
+        ]
+      }
+    },
     "/api/v1/missions": {
       "get": {
         "operationId": "list_missions_api_v1_missions_get",
@@ -6744,6 +9356,10 @@
     {
       "description": "Missions, dailies, retention, interviews, analytics.",
       "name": "gameplay"
+    },
+    {
+      "description": "Interactive labs: attention visualiser, RAG tuning bench, agent inspector, AI mentor and the evaluation harness. Every one works offline.",
+      "name": "labs"
     },
     {
       "description": "Liveness and readiness probes.",
