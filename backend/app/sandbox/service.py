@@ -26,6 +26,7 @@ from app.core.logging import get_logger
 from app.sandbox.backends import (
     DisabledBackend,
     DockerBackend,
+    RemoteBackend,
     SandboxBackend,
     SubprocessBackend,
 )
@@ -122,6 +123,13 @@ def build_backend(cfg: Settings) -> SandboxBackend:
     match cfg.sandbox_mode:
         case "docker":
             return DockerBackend(cfg.sandbox_docker_image)
+        case "remote":
+            if not cfg.sandbox_service_url:
+                # Failing loudly here beats silently falling back to in-process
+                # execution: the whole point of `remote` is that this server is
+                # not allowed to run player code.
+                raise RuntimeError("SANDBOX_MODE=remote requires SANDBOX_SERVICE_URL to be set.")
+            return RemoteBackend(cfg.sandbox_service_url, cfg.sandbox_service_token)
         case "disabled":
             return DisabledBackend()
         case _:

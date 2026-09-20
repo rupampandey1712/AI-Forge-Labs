@@ -274,6 +274,8 @@ how to add a content pack.
 | [RAG.md](docs/RAG.md)                               | The RAG pipeline and its failure modes              |
 | [INTERVIEW_GUIDE.md](docs/INTERVIEW_GUIDE.md)       | How answers are scored, and what each band adds     |
 | [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)       | Things that go wrong, and why                       |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md)                 | Azure Container Apps, the sandbox split, cost       |
+| [ADR-001](docs/adr/ADR-001-modular-monolith-with-one-split.md) | Why one service split and not ten        |
 
 ---
 

@@ -151,6 +151,20 @@ class ExecutionResult:
             and self.tests_passed == self.tests_total
         )
 
+    def to_json_dict(self) -> dict[str, Any]:
+        """The inverse of ``from_json_dict``.
+
+        Needed once the sandbox became a separate service: the runner writes
+        this shape over its stdout frame, and the sandbox *service* writes the
+        same shape over HTTP. Keeping one serialisation for both means the
+        remote backend and the local one cannot drift, and the wire format is
+        testable with a round-trip assertion rather than by deploying.
+        """
+        payload = asdict(self)
+        payload["status"] = str(self.status)
+        payload["protocol_version"] = PROTOCOL_VERSION
+        return payload
+
     @classmethod
     def from_json_dict(cls, data: dict[str, Any]) -> ExecutionResult:
         outcomes = [TestOutcome(**o) for o in data.get("outcomes", [])]

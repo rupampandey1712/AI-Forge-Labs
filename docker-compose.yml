@@ -112,12 +112,94 @@ services:
       seed:
         condition: service_completed_successfully
     # DANGER, and why it is commented out: mounting the Docker socket gives
-    # this container root on the host. It is required for SANDBOX_MODE=docker,
-    # and the correct production answer is a separate sandbox *service* with
-    # its own restricted socket proxy, not this line. Uncomment only for local
-    # experimentation, and understand what you are trading.
+    # this container root on the host. It is required for SANDBOX_MODE=docker
+    # in this single-process arrangement. The production answer is the `split`
+    # profile below — a separate sandbox service the API reaches over the
+    # network — not this line. Uncomment only for local experimentation, and
+    # understand what you are trading.
     # volumes:
     #   - /var/run/docker.sock:/var/run/docker.sock
+
+  # ── The deployed shape (spec §35/§66) ──────────────────────────────────────
+  #
+  #   docker compose --profile split up --build
+  #
+  # Runs the sandbox as its own service and points the API at it over HTTP.
+  # This is what Azure Container Apps deploys, and it is the only service split
+  # in the application — see docs/adr/ADR-001 for why everything else is a
+  # module.
+  #
+  # What the boundary buys: `sandbox` has no ports published, no database, no
+  # secrets except the token it checks, and it is on an internal network the
+  # frontend cannot reach. The API holds the credentials and cannot execute
+  # anything. Compromising the process that runs hostile code by design yields
+  # a container that could already run arbitrary code, and nothing else.
+  sandbox:
+    profiles: ["split"]
+    build:
+      context: ./backend
+      dockerfile: ../infra/docker/sandbox-service.Dockerfile
+    restart: unless-stopped
+    environment:
+      SANDBOX_MODE: subprocess
+      SANDBOX_SERVICE_TOKEN: ${SANDBOX_TOKEN:-dev-only-sandbox-token-change-me}
+      SANDBOX_TIMEOUT_CEILING: "30"
+      SANDBOX_MEMORY_CEILING_MB: "1024"
+      LOG_JSON: "true"
+    # Deliberately no `ports:`. Reachable only from `backend` on the internal
+    # network — if you can curl this from your laptop, the boundary is gone.
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8001/health').status==200 else 1)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    # Defence in depth: this container executes untrusted code, so it drops
+    # every capability it does not need even though the runner already applies
+    # rlimits inside.
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+
+  backend-split:
+    profiles: ["split"]
+    build:
+      context: ./backend
+    restart: unless-stopped
+    environment:
+      APP_ENV: ${APP_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:-dev-only-compose-secret-change-me-in-production-0123456789}
+      DATABASE_URL: postgresql+asyncpg://forge:forge@postgres:5432/aiforge
+      REDIS_URL: redis://redis:6379/0
+      CORS_ORIGINS: http://localhost:5173,http://localhost
+      LOG_JSON: "true"
+      # The API cannot execute code at all in this mode: `remote` makes
+      # build_backend raise rather than fall back to a local subprocess.
+      SANDBOX_MODE: remote
+      SANDBOX_SERVICE_URL: http://sandbox:8001
+      SANDBOX_SERVICE_TOKEN: ${SANDBOX_TOKEN:-dev-only-sandbox-token-change-me}
+      LLM_PROVIDER: ${LLM_PROVIDER:-mock}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports:
+      - "8000:8000"
+    networks:
+      - default
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      sandbox:
+        condition: service_healthy
+      seed:
+        condition: service_completed_successfully
 
   frontend:
     build:
@@ -158,3 +240,10 @@ services:
 
 volumes:
   postgres_data:
+
+networks:
+  default:
+  # No external access. The sandbox sits here alone with the API; nothing else
+  # in the stack can reach it, and it can reach nothing outward.
+  internal:
+    internal: true

@@ -346,3 +346,83 @@ class DisabledBackend(SandboxBackend):
             status=ExecStatus.SANDBOX_ERROR,
             error_message="Code execution is disabled on this server (SANDBOX_MODE=disabled).",
         )
+
+
+class RemoteBackend(SandboxBackend):
+    """Calls a separate sandbox *service* over HTTP.
+
+    WHY THIS EXISTS, and why it is the only service split in the codebase:
+    spec §35 requires that player code never execute inside the game server's
+    process. The subprocess and Docker backends satisfy that on one host; this
+    one satisfies it across a *trust* boundary, which is what a real deployment
+    needs. The game server can then run with no Docker socket, no ability to
+    spawn processes, and a read-only filesystem — because it never executes
+    anything.
+
+    Every other seam in this application stayed a module for the reasons in
+    ADR-001. This one is a network call because the thing on the other side is
+    hostile by design, and a process boundary is the only boundary that means
+    anything against hostile code.
+
+    The failure mode is deliberately conservative: an unreachable sandbox
+    returns SANDBOX_ERROR rather than raising. A player seeing "the sandbox is
+    unavailable" is a degraded experience; a 500 from the submit endpoint loses
+    their attempt.
+    """
+
+    name = "remote"
+
+    def __init__(self, base_url: str, token: str = "", timeout_margin: float = 10.0) -> None:
+        self.base_url = base_url.rstrip("/")
+        self.token = token
+        # Margin over the *execution* timeout: the sandbox enforces its own
+        # limit and returns a timed-out result, which is far more useful than a
+        # client-side timeout that tells the player nothing. The HTTP timeout
+        # exists only to catch a sandbox that has died entirely.
+        self.timeout_margin = timeout_margin
+
+    def _headers(self) -> dict[str, str]:
+        headers = {"Content-Type": "application/json"}
+        if self.token:
+            headers["X-Sandbox-Token"] = self.token
+        return headers
+
+    async def healthcheck(self) -> tuple[bool, str]:
+        import httpx
+
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{self.base_url}/health", headers=self._headers())
+            if response.status_code == 200:
+                return True, f"remote sandbox ok ({self.base_url})"
+            return False, f"remote sandbox returned {response.status_code}"
+        except Exception as exc:
+            return False, f"remote sandbox unreachable: {type(exc).__name__}"
+
+    async def execute(self, request: ExecutionRequest) -> ExecutionResult:
+        import httpx
+
+        try:
+            async with httpx.AsyncClient(
+                timeout=request.timeout_seconds + self.timeout_margin
+            ) as client:
+                response = await client.post(
+                    f"{self.base_url}/execute",
+                    headers=self._headers(),
+                    json=request.to_json_dict(),
+                )
+            response.raise_for_status()
+            return ExecutionResult.from_json_dict(response.json())
+        except Exception as exc:
+            # Losing a submission because the sandbox restarted is a worse
+            # outcome than reporting the outage, so this degrades rather than
+            # propagating.
+            log.error("sandbox.remote_failed", url=self.base_url, error=str(exc))
+            return ExecutionResult(
+                status=ExecStatus.SANDBOX_ERROR,
+                error_type=type(exc).__name__,
+                error_message=(
+                    "The code execution service is unavailable. Your work is not lost — "
+                    "try running it again in a moment."
+                ),
+            )

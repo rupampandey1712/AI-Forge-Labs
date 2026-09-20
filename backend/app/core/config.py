@@ -25,7 +25,7 @@ BACKEND_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = BACKEND_ROOT.parent
 
 AppEnv = Literal["development", "test", "production"]
-SandboxMode = Literal["subprocess", "docker", "disabled"]
+SandboxMode = Literal["subprocess", "docker", "remote", "disabled"]
 LLMProvider = Literal["mock", "anthropic", "openai", "gemini", "google"]
 EmbeddingProviderName = Literal["hash", "gemini", "google", "openai"]
 
@@ -72,6 +72,11 @@ class Settings(BaseSettings):
     sandbox_max_output_bytes: int = 64 * 1024
     sandbox_docker_image: str = "aiforge-sandbox:latest"
     sandbox_max_concurrency: int = 4
+    #: Only used by SANDBOX_MODE=remote. Empty means the split is not deployed.
+    sandbox_service_url: str = ""
+    #: Shared secret for the sandbox service. The sandbox executes hostile code,
+    #: so it must not be callable by anything except the game server.
+    sandbox_service_token: str = ""
 
     # --- AI ----------------------------------------------------------------
     # "mock" is the default on purpose: every AI lab in the game must be

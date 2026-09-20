@@ -234,7 +234,12 @@ def test_runner_imports_nothing_from_the_app():
     import ast
     import pathlib
 
-    source = pathlib.Path("app/sandbox/runner_main.py").read_text(encoding="utf-8")
+    # Anchored on the module under test, not the cwd: this assertion must hold
+    # wherever pytest is invoked from, and a path-not-found is an error rather
+    # than a pass.
+    import app.sandbox.runner_main as runner_module
+
+    source = pathlib.Path(runner_module.__file__).read_text(encoding="utf-8")
     tree = ast.parse(source)
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
