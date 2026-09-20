@@ -149,6 +149,35 @@
   }
 }
 
+/* Range inputs are styled per-engine; the track is drawn by the component
+   underneath, so the native input contributes only its thumb and its
+   keyboard/ARIA behaviour. Hiding the native track instead of rebuilding the
+   control in JS is what keeps arrow-key stepping working for free. */
+@layer components {
+  .lab-range::-webkit-slider-runnable-track {
+    @apply h-5 bg-transparent;
+  }
+  .lab-range::-moz-range-track {
+    @apply h-5 bg-transparent;
+  }
+  .lab-range::-webkit-slider-thumb {
+    @apply h-4 w-4 cursor-pointer appearance-none rounded-full border-2 border-forge-950 bg-accent;
+    box-shadow: 0 0 12px -2px rgb(34 211 238 / 0.8);
+    margin-top: 2px;
+    transition: transform 0.15s ease;
+  }
+  .lab-range::-webkit-slider-thumb:hover {
+    transform: scale(1.18);
+  }
+  .lab-range::-moz-range-thumb {
+    @apply h-4 w-4 cursor-pointer rounded-full border-2 border-forge-950 bg-accent;
+    box-shadow: 0 0 12px -2px rgb(34 211 238 / 0.8);
+  }
+  .lab-range:focus-visible::-webkit-slider-thumb {
+    @apply ring-2 ring-accent ring-offset-2 ring-offset-forge-950;
+  }
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;

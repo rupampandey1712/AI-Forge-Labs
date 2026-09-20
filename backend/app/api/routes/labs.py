@@ -149,11 +149,17 @@ async def run_agent(
     return await service.run_agent(payload, profile)
 
 
-@router.post("/agents/resume")
+@router.post("/agents/resume", response_model=AgentRunResponse)
 async def resume_agent(
     payload: AgentResumeRequest, profile: CurrentProfile, service: LabSvc
 ) -> dict[str, Any]:
-    """Approve or reject a run paused at a human-in-the-loop checkpoint."""
+    """Approve or reject a run paused at a human-in-the-loop checkpoint.
+
+    Returns the same shape as ``/agents/run``, with the pre- and post-approval
+    steps merged into one history — an approval that returned only an
+    acknowledgement would leave the player unable to see what their decision
+    actually caused, which is the only interesting part.
+    """
     return await service.resume_agent(payload.run_id, payload.approved, payload.note)
 
 

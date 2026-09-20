@@ -25,6 +25,14 @@ const Skills = lazy(() => import('@/pages/Skills'));
 const Mistakes = lazy(() => import('@/pages/Mistakes'));
 const Analytics = lazy(() => import('@/pages/Analytics'));
 const Achievements = lazy(() => import('@/pages/Achievements'));
+// The labs are the heaviest bundles in the app (Recharts plus large SVG and
+// matrix rendering), and most sessions never open them — so they stay lazy.
+const Labs = lazy(() => import('@/pages/labs/Labs'));
+const TransformerLab = lazy(() => import('@/pages/labs/TransformerLab'));
+const RagLab = lazy(() => import('@/pages/labs/RagLab'));
+const AgentLab = lazy(() => import('@/pages/labs/AgentLab'));
+const MentorLab = lazy(() => import('@/pages/labs/MentorLab'));
+const EvalsLab = lazy(() => import('@/pages/labs/EvalsLab'));
 
 function FullPageLoader() {
   return (
@@ -91,6 +99,12 @@ export default function App() {
           <Route path="mistakes" element={<Mistakes />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="achievements" element={<Achievements />} />
+          <Route path="labs" element={<Labs />} />
+          <Route path="labs/transformer" element={<TransformerLab />} />
+          <Route path="labs/rag" element={<RagLab />} />
+          <Route path="labs/agents" element={<AgentLab />} />
+          <Route path="labs/mentor" element={<MentorLab />} />
+          <Route path="labs/evals" element={<EvalsLab />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -81,6 +81,23 @@ const CALLS: [string, string][] = [
   ['post', '/code/execute'],
   ['get', '/journal'],
   ['post', '/journal'],
+  ['get', '/labs/status'],
+  ['post', '/labs/transformer/attention'],
+  ['post', '/labs/transformer/tokenize'],
+  ['post', '/labs/transformer/sampling'],
+  ['get', '/labs/rag/corpora'],
+  ['post', '/labs/rag/chunk-preview'],
+  ['post', '/labs/rag/query'],
+  ['get', '/labs/rag/experiments'],
+  ['get', '/labs/rag/golden-set'],
+  ['get', '/labs/agents'],
+  ['get', '/labs/agents/{slug}'],
+  ['post', '/labs/agents/run'],
+  ['post', '/labs/agents/resume'],
+  ['post', '/labs/mentor/ask'],
+  ['post', '/labs/mentor/socratic'],
+  ['post', '/labs/mentor/generate'],
+  ['post', '/labs/evals/run'],
 ];
 
 describe('API contract', () => {
@@ -130,6 +147,16 @@ describe('response shapes', () => {
     ['RetentionDashboardOut', ['overall_retention', 'concepts_due', 'alerts', 'forecast', 'by_skill']],
     ['InterviewFeedbackOut', ['score', 'dimension_scores', 'interviewer_reaction', 'level_gap']],
     ['SkillProgressOut', ['skill_slug', 'mastery', 'effective_mastery', 'highest_tier_cleared']],
+    // Labs: the intermediates are the product. A missing `raw_scores` or
+    // `state_diff` turns a visualiser into a black box with nicer colours.
+    ['AttentionResponse', ['tokens', 'heads', 'd_head', 'causal', 'scaled', 'insight']],
+    ['AttentionHeadOut', ['weights', 'raw_scores', 'entropy', 'argmax']],
+    ['RAGQueryResponse', ['retrieved', 'stages', 'prompt', 'metrics', 'diagnosis', 'total_ms']],
+    ['RetrievedChunkOut', ['doc_slug', 'score', 'rerank_score', 'original_rank']],
+    ['AgentRunResponse', ['history', 'node_visits', 'looped', 'halted_reason', 'interrupted_at']],
+    ['StepOut', ['node', 'state_diff', 'edge_taken', 'edge_reason', 'duration_ms']],
+    ['MentorResponseOut', ['level', 'message', 'reveals_answer', 'next_level', 'trace']],
+    ['EvalRunResponse', ['metrics', 'per_case', 'verdict', 'reasons', 'cases_passed']],
   ])('%s exposes the fields the UI reads', (name, expected) => {
     const actual = props(name);
     expect(actual.length, `${name} is missing from the schema`).toBeGreaterThan(0);
@@ -145,6 +172,13 @@ describe('response shapes', () => {
     expect(challenge).not.toContain('reference_solution');
     expect(challenge).not.toContain('tests');
     expect(challenge).toContain('visible_tests');
+  });
+
+  it('generated questions carry their rejection reasons', () => {
+    // The content agent is allowed to produce bad questions; it is not allowed
+    // to produce bad questions that look fine. `issues` is how the UI knows.
+    const generated = props('GeneratedQuestionOut');
+    expect(generated).toEqual(expect.arrayContaining(['issues', 'is_usable', 'rubric']));
   });
 
   it('question payloads never reveal which option is correct', () => {

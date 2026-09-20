@@ -556,7 +556,13 @@ class LabService:
                 profile_id=profile.id,
                 graph_slug=payload.graph,
                 input_payload={"question": payload.question},
-                config={"recursion_limit": payload.recursion_limit},
+                # `interrupted_at` lives in config rather than its own column: it
+                # is meaningless except while a run is paused, and adding a
+                # column for it would mean a migration for a transient field.
+                config={
+                    "recursion_limit": payload.recursion_limit,
+                    "interrupted_at": run.interrupted_at,
+                },
                 status=run.status,
                 final_state=data["final_state"],
                 output=str(run.final_state.get("final_answer", ""))[:5000],
@@ -624,6 +630,19 @@ class LabService:
         return notes
 
     async def resume_agent(self, run_id: str, approved: bool, note: str) -> dict[str, Any]:
+        """Continue a paused run, or close it out as rejected.
+
+        WHY THIS ACTUALLY RE-EXECUTES: an approval that only records a decision
+        teaches the wrong lesson. The entire point of `interrupt_before` is that
+        the state is *durable* — the graph stops, a human decides, and execution
+        picks up from exactly where it paused with the decision folded into
+        state. If approving ran nothing, the lab would be demonstrating a
+        confirmation dialog, not human-in-the-loop.
+
+        The returned shape is a full run response, and its history is the
+        original steps plus the resumed ones, renumbered into one sequence. The
+        player scrubbing the replay should see the whole story, not the tail.
+        """
         row = (
             await self.session.execute(select(AgentRun).where(AgentRun.id == uuid.UUID(run_id)))
         ).scalar_one_or_none()
@@ -632,21 +651,99 @@ class LabService:
         if not row.needs_human_approval:
             raise ValidationFailedError("This run is not waiting for approval.")
 
-        row.human_decision = "approved" if approved else "rejected"
-        row.needs_human_approval = False
-        row.status = "completed" if approved else "rejected"
-        row.final_state = {
+        decision = "approved" if approved else "rejected"
+        resolved_state = {
             **row.final_state,
-            "human_decision": row.human_decision,
+            "human_decision": decision,
             "human_note": note,
             "resolved_at": datetime.now(UTC).isoformat(),
         }
-        return {
-            "run_id": run_id,
-            "status": row.status,
-            "decision": row.human_decision,
-            "note": note,
-        }
+        prior: list[dict[str, Any]] = list(row.state_history)
+        paused_at = (row.config or {}).get("interrupted_at")
+
+        if approved and paused_at:
+            graph = build_graph(row.graph_slug)
+            # `resume_at` both restarts at the paused node and suppresses *that*
+            # node's own interrupt — a later gate in the same graph still stops.
+            resumed = await graph.run(
+                {},
+                recursion_limit=int((row.config or {}).get("recursion_limit", 25)),
+                resume_from=resolved_state,
+                resume_at=paused_at,
+            )
+            data = resumed.to_dict()
+            # Graph step numbers are 0-indexed and restart at 0 on a resumed
+            # run, so they are rebased onto the end of the prior history. Off by
+            # one here leaves a gap in the replay scrubber.
+            offset = len(prior)
+            for index, record in enumerate(data["history"]):
+                record["step"] = offset + index
+            merged = prior + data["history"]
+            visits = dict(row.node_visits)
+            for node, count in resumed.node_visits.items():
+                visits[node] = visits.get(node, 0) + count
+
+            row.status = resumed.status
+            row.final_state = data["final_state"]
+            row.output = str(resumed.final_state.get("final_answer", ""))[:5000]
+            row.state_history = merged
+            row.node_visits = visits
+            row.steps = row.steps + resumed.steps
+            row.latency_ms = row.latency_ms + resumed.total_ms
+            row.halted_reason = resumed.halted_reason[:60] if resumed.halted_reason else None
+            # A second gate in the same graph leaves the run paused again.
+            row.needs_human_approval = resumed.status == "interrupted"
+            row.config = {**(row.config or {}), "interrupted_at": resumed.interrupted_at}
+            payload = {
+                **data,
+                "history": merged,
+                "node_visits": visits,
+                "steps": row.steps,
+                "total_ms": row.latency_ms,
+            }
+        else:
+            # A rejection is a terminal outcome, not a failure: the graph did its
+            # job by asking. Nothing further executes.
+            row.status = "rejected" if not approved else "completed"
+            row.final_state = resolved_state
+            row.needs_human_approval = False
+            payload = {
+                "status": row.status,
+                "final_state": resolved_state,
+                "history": prior,
+                "halted_reason": None,
+                "interrupted_at": None,
+                "steps": row.steps,
+                "total_ms": row.latency_ms,
+                "node_visits": dict(row.node_visits),
+                "looped": False,
+            }
+
+        row.human_decision = decision
+        payload["run_id"] = run_id
+        payload["graph"] = row.graph_slug
+        payload["diagnosis"] = self._resume_diagnosis(decision, str(paused_at or ""), row.status)
+        return payload
+
+    @staticmethod
+    def _resume_diagnosis(decision: str, paused_at: str, status: str) -> list[str]:
+        if decision == "rejected":
+            return [
+                f"✋ Rejected at '{paused_at}'. The graph stopped without acting, which is the "
+                "outcome the checkpoint exists to make possible. Note that the agent had already "
+                "decided what to do — the gate is what turned that decision into a proposal.",
+            ]
+        notes = [
+            f"▶ Resumed from '{paused_at}' with the approval folded into state. The steps after "
+            "this point are the ones the checkpoint was holding back.",
+        ]
+        if status == "interrupted":
+            notes.append(
+                "⏸ And it paused again: this graph has more than one gate. Approving once does "
+                "not grant blanket permission, which is the correct default for anything that "
+                "spends money or touches production."
+            )
+        return notes
 
     # ══ Mentor ═══════════════════════════════════════════════════════════
     async def ask_mentor(self, payload: MentorAskRequest) -> dict[str, Any]:

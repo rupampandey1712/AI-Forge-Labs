@@ -11,15 +11,21 @@ import {
   Activity,
   Award,
   BookOpen,
+  Bot,
+  Braces,
   Bug,
   Coins,
+  FlaskConical,
   Flame,
+  GitBranch,
   Home,
   LogOut,
   type LucideIcon,
+  Layers,
   Map,
   Menu,
   Mic,
+  ShieldCheck,
   Swords,
   Target,
   TrendingUp,
@@ -57,6 +63,20 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { to: '/app/concepts', label: 'Codex', icon: BookOpen },
       { to: '/app/interview', label: 'Interview Arena', icon: Mic },
       { to: '/app/retention', label: 'Retention', icon: Activity, badgeKey: 'due' },
+    ],
+  },
+  {
+    // The labs are a distinct mode of engagement: everything above asks you
+    // questions, and these hand you the instrument. Grouping them apart keeps
+    // that distinction legible rather than burying them in "Train".
+    section: 'Labs',
+    items: [
+      { to: '/app/labs', label: 'All Labs', icon: FlaskConical },
+      { to: '/app/labs/transformer', label: 'Transformer', icon: Layers },
+      { to: '/app/labs/rag', label: 'RAG Bench', icon: Braces },
+      { to: '/app/labs/agents', label: 'Agent Factory', icon: GitBranch },
+      { to: '/app/labs/evals', label: 'Evaluation', icon: ShieldCheck },
+      { to: '/app/labs/mentor', label: 'AI Mentor', icon: Bot },
     ],
   },
   {

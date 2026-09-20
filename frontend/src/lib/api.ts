@@ -49,6 +49,28 @@ import type {
   WorldMap,
   XPTransaction,
 } from '@/types/api';
+import type {
+  AgentRunResponse,
+  AttentionRequest,
+  AttentionResponse,
+  ChunkPreviewResponse,
+  EvalRunResponse,
+  GenerateQuestionResponse,
+  GoldenCase,
+  GraphDiagram,
+  GraphSummary,
+  LabStatus,
+  MentorAskRequest,
+  MentorResponse,
+  RAGCompareResponse,
+  RAGConfig,
+  RAGCorpus,
+  RAGQueryResponse,
+  SamplingRequest,
+  SamplingResponse,
+  SocraticResponse,
+  TokenizeResponse,
+} from '@/types/labs';
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api/v1';
 const ACCESS_KEY = 'aiforge.access';
@@ -361,6 +383,65 @@ export const api = {
       context_slug?: string;
       concept_slugs?: string[];
     }) => request<{ id: string }>('/journal', { method: 'POST', body }),
+  },
+
+  // The labs are instruments: every call returns the intermediates, so these
+  // are grouped by the tower they belong to rather than by HTTP shape.
+  labs: {
+    status: () => request<LabStatus>('/labs/status'),
+
+    attention: (body: AttentionRequest) =>
+      request<AttentionResponse>('/labs/transformer/attention', { method: 'POST', body }),
+    tokenize: (text: string) =>
+      request<TokenizeResponse>('/labs/transformer/tokenize', { method: 'POST', body: { text } }),
+    sampling: (body: SamplingRequest) =>
+      request<SamplingResponse>('/labs/transformer/sampling', { method: 'POST', body }),
+
+    corpora: () => request<RAGCorpus[]>('/labs/rag/corpora'),
+    chunkPreview: (body: {
+      text: string;
+      chunk_size?: number;
+      chunk_overlap?: number;
+      respect_structure?: boolean;
+    }) => request<ChunkPreviewResponse>('/labs/rag/chunk-preview', { method: 'POST', body }),
+    ragQuery: (body: {
+      question: string;
+      config?: RAGConfig;
+      expected_answer?: string;
+      relevant_doc_ids?: string[];
+      save_experiment?: boolean;
+    }) => request<RAGQueryResponse>('/labs/rag/query', { method: 'POST', body }),
+    experiments: (limit = 20) =>
+      request<RAGCompareResponse>(`/labs/rag/experiments${qs({ limit })}`),
+    goldenSet: () => request<GoldenCase[]>('/labs/rag/golden-set'),
+
+    graphs: () => request<GraphSummary[]>('/labs/agents'),
+    graph: (slug: string) => request<GraphDiagram>(`/labs/agents/${slug}`),
+    runAgent: (body: {
+      graph: string;
+      question: string;
+      recursion_limit?: number;
+      initial_state?: Record<string, unknown>;
+      save_run?: boolean;
+    }) => request<AgentRunResponse>('/labs/agents/run', { method: 'POST', body }),
+    resumeAgent: (body: { run_id: string; approved: boolean; note?: string }) =>
+      request<AgentRunResponse>('/labs/agents/resume', { method: 'POST', body }),
+
+    mentorAsk: (body: MentorAskRequest) =>
+      request<MentorResponse>('/labs/mentor/ask', { method: 'POST', body }),
+    socratic: (body: { concept_slug: string; player_answer: string; tier?: number }) =>
+      request<SocraticResponse>('/labs/mentor/socratic', { method: 'POST', body }),
+    generate: (body: { concept_slug: string; tier?: number; kind?: string; count?: number }) =>
+      request<GenerateQuestionResponse>('/labs/mentor/generate', { method: 'POST', body }),
+
+    runEval: (body: {
+      name: string;
+      config?: RAGConfig;
+      cases?: { question: string; relevant_doc_ids?: string[]; expected_answer?: string }[];
+      use_golden_set?: boolean;
+      use_llm_judge?: boolean;
+      baseline_evaluation_id?: string | null;
+    }) => request<EvalRunResponse>('/labs/evals/run', { method: 'POST', body }),
   },
 };
 

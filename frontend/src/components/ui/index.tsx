@@ -8,6 +8,7 @@
  */
 
 import { AnimatePresence, motion } from 'framer-motion';
+import { fadeIn } from '@/lib/motion';
 import { AlertTriangle, Loader2, X } from 'lucide-react';
 import {
   createContext,
@@ -317,10 +318,12 @@ export function Tab({
   value,
   children,
   badge,
+  icon,
 }: {
   value: string;
   children: ReactNode;
   badge?: ReactNode;
+  icon?: ReactNode;
 }) {
   const ctx = useContext(TabsContext);
   if (!ctx) throw new Error('<Tab> must be inside <Tabs>');
@@ -337,6 +340,7 @@ export function Tab({
         active ? 'text-accent' : 'text-forge-400 hover:text-forge-200',
       )}
     >
+      {icon}
       {children}
       {badge}
       {active && (
@@ -353,15 +357,22 @@ export function TabPanel({ value, children }: { value: string; children: ReactNo
   const ctx = useContext(TabsContext);
   if (!ctx) throw new Error('<TabPanel> must be inside <Tabs>');
   if (ctx.value !== value) return null;
+  // `key` on the motion element re-mounts on every tab change, so the panel
+  // animates in rather than swapping instantly. Without it React reconciles the
+  // two panels as the same node and no transition ever runs.
   return (
-    <div
+    <motion.div
+      key={value}
       role="tabpanel"
       id={`${ctx.baseId}-panel-${value}`}
       aria-labelledby={`${ctx.baseId}-tab-${value}`}
       className="pt-4"
+      variants={fadeIn}
+      initial="hidden"
+      animate="show"
     >
       {children}
-    </div>
+    </motion.div>
   );
 }
 

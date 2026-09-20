@@ -7507,7 +7507,7 @@
     },
     "/api/v1/labs/agents/resume": {
       "post": {
-        "description": "Approve or reject a run paused at a human-in-the-loop checkpoint.",
+        "description": "Approve or reject a run paused at a human-in-the-loop checkpoint.\n\nReturns the same shape as ``/agents/run``, with the pre- and post-approval\nsteps merged into one history \u2014 an approval that returned only an\nacknowledgement would leave the player unable to see what their decision\nactually caused, which is the only interesting part.",
         "operationId": "resume_agent_api_v1_labs_agents_resume_post",
         "requestBody": {
           "content": {
@@ -7524,9 +7524,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Resume Agent Api V1 Labs Agents Resume Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/AgentRunResponse"
                 }
               }
             },
