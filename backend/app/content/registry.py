@@ -9,12 +9,26 @@ from __future__ import annotations
 
 from functools import lru_cache
 
-from app.content.packs import corpus, meta, python_core
+from app.content.packs import (
+    agent_factory,
+    corpus,
+    data_engineering,
+    debugging_dungeon,
+    meta,
+    python_core,
+    rag_tower,
+)
 from app.content.schema import ContentPack
 
-#: Ordered registry. Foundations first.
+#: Ordered registry. Foundations first, then the towers in the order the world
+#: map unlocks them, then the corpora and the cross-cutting meta pack last —
+#: ``meta`` awards badges for content the earlier packs define.
 _PACK_MODULES = (
     python_core,
+    data_engineering,
+    rag_tower,
+    agent_factory,
+    debugging_dungeon,
     corpus,
     meta,
 )
