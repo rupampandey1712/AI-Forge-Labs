@@ -101,6 +101,65 @@ async def _kill_process_tree(proc: asyncio.subprocess.Process) -> None:
         await asyncio.wait_for(proc.wait(), timeout=3)
 
 
+def _classify_death(returncode: int | None) -> tuple[ExecStatus, str]:
+    """Turn the exit status of a runner that died without reporting into a
+    diagnosis the player can act on.
+
+    WHY THIS IS NOT ONE BRANCH: the previous version treated every non-zero
+    exit as the memory limit, so an infinite loop killed by the CPU rlimit told
+    the player "the memory limit was hit". That is a wrong diagnosis pointing at
+    the wrong fix, in a game whose Debugging Dungeon teaches reading the
+    evidence. Found by running the real container, not by a unit test — the
+    in-process tests never reach a signal.
+
+    Negative codes are POSIX signals from `subprocess`; 128+n is the shell's
+    encoding of the same, which is what Docker reports.
+    """
+    if returncode in (0, None):
+        return ExecStatus.SANDBOX_ERROR, (
+            "The sandbox process exited cleanly without reporting a result. "
+            "This is a bug in the sandbox, not in your code."
+        )
+
+    signal_number = (
+        -returncode if returncode < 0 else (returncode - 128 if 128 < returncode < 160 else None)
+    )
+
+    if signal_number == 24:  # SIGXCPU
+        return ExecStatus.TIMEOUT, (
+            "Your code used more CPU time than it is allowed. An infinite loop, "
+            "runaway recursion, or an accidental O(n²) over a large input are the "
+            "usual suspects — note that this is CPU time, not wall-clock, so "
+            "sleeping does not trigger it."
+        )
+    if signal_number == 9:  # SIGKILL — the OOM killer, or the timeout kill
+        return ExecStatus.MEMORY, (
+            "The sandbox process was killed, which almost always means it ran out "
+            "of memory. Look for a data structure that grows with the input, or an "
+            "array allocation whose size is a product rather than a sum."
+        )
+    if signal_number == 11:  # SIGSEGV
+        return ExecStatus.SANDBOX_ERROR, (
+            "The interpreter segfaulted. That is usually a native extension rather "
+            "than your Python — deep recursion past the C stack limit is the most "
+            "common cause."
+        )
+    if signal_number == 6:  # SIGABRT
+        return ExecStatus.MEMORY, (
+            "The interpreter aborted, most often because an allocation failed. "
+            "Check for an array or list whose size grows faster than you expect."
+        )
+    if signal_number is not None:
+        return ExecStatus.SANDBOX_ERROR, (
+            f"The sandbox process was terminated by signal {signal_number}."
+        )
+    return ExecStatus.ERROR, (
+        f"Your code exited with status {returncode} before any test could run. "
+        "Something at module level failed — check for an exception raised during "
+        "import or definition."
+    )
+
+
 class SubprocessBackend(SandboxBackend):
     """Separate OS process, resource-limited, scrubbed env, throwaway cwd.
 
@@ -199,17 +258,15 @@ class SubprocessBackend(SandboxBackend):
         if parsed is None:
             # The runner died before it could frame a result — MemoryError kills,
             # segfaults from a native extension, SIGKILL from an rlimit.
-            killed_by_limit = proc.returncode not in (0, None)
+            status, message = _classify_death(proc.returncode)
             return ExecutionResult(
-                status=ExecStatus.MEMORY if killed_by_limit else ExecStatus.SANDBOX_ERROR,
+                status=status,
                 exit_code=proc.returncode,
                 stdout=stdout[:4000],
                 stderr=stderr[:4000],
                 duration_ms=duration_ms,
-                error_message=(
-                    "The sandbox process exited without reporting a result. This usually "
-                    "means the memory limit was hit or the interpreter crashed."
-                ),
+                timed_out=status == ExecStatus.TIMEOUT,
+                error_message=message,
             )
         parsed.exit_code = proc.returncode
         parsed.duration_ms = parsed.duration_ms or duration_ms
@@ -316,18 +373,24 @@ class DockerBackend(SandboxBackend):
         stderr = stderr_b.decode("utf-8", errors="replace")
         parsed = _parse_runner_output(stdout, stderr)
         if parsed is None:
-            # Docker reports OOM kills as exit code 137 (128 + SIGKILL).
-            oom = proc.returncode == 137
+            # Docker encodes signals as 128+n, which `_classify_death` handles —
+            # so 137 (SIGKILL/OOM) and 152 (SIGXCPU) are told apart here exactly
+            # as they are in the subprocess backend, rather than everything that
+            # is not 137 becoming an opaque sandbox error.
+            status, message = _classify_death(proc.returncode)
+            if status == ExecStatus.MEMORY:
+                message = (
+                    f"The container exceeded its {request.memory_mb}MB memory limit. "
+                    "Look for a data structure that grows with the input, or an array "
+                    "allocation whose size is a product rather than a sum."
+                )
             return ExecutionResult(
-                status=ExecStatus.MEMORY if oom else ExecStatus.SANDBOX_ERROR,
+                status=status,
                 exit_code=proc.returncode,
                 stdout=stdout[:4000],
                 stderr=stderr[:4000],
-                error_message=(
-                    f"Container exceeded the {request.memory_mb}MB memory limit."
-                    if oom
-                    else "The sandbox container exited without reporting a result."
-                ),
+                timed_out=status == ExecStatus.TIMEOUT,
+                error_message=message,
             )
         parsed.exit_code = proc.returncode
         return parsed

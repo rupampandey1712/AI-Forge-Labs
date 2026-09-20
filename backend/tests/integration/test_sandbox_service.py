@@ -224,3 +224,105 @@ class TestRemoteBackendDegradesSafely:
         backend = build_backend(cfg)
         assert isinstance(backend, RemoteBackend)
         assert backend.name == "remote"
+
+
+class TestProcessDeathIsDiagnosedCorrectly:
+    """A runner that dies without reporting must be diagnosed from its signal.
+
+    Both of these shipped, and both were found by running the real container
+    rather than by a test: every non-zero exit was reported as the memory limit,
+    so an infinite loop killed by the CPU rlimit told the player to look for a
+    memory leak. In a product whose Debugging Dungeon teaches "read the
+    evidence", a wrong diagnosis is worse than a vague one.
+    """
+
+    @pytest.mark.parametrize(
+        "returncode,expected,keyword",
+        [
+            (-24, ExecStatus.TIMEOUT, "cpu"),  # SIGXCPU
+            (152, ExecStatus.TIMEOUT, "cpu"),  # 128 + SIGXCPU, as Docker reports it
+            (-9, ExecStatus.MEMORY, "memory"),  # SIGKILL
+            (137, ExecStatus.MEMORY, "memory"),  # 128 + SIGKILL, the Docker OOM code
+            (-6, ExecStatus.MEMORY, "alloc"),  # SIGABRT
+            (-11, ExecStatus.SANDBOX_ERROR, "segfault"),  # SIGSEGV
+            (139, ExecStatus.SANDBOX_ERROR, "segfault"),  # 128 + SIGSEGV
+            (1, ExecStatus.ERROR, "exited with status"),
+        ],
+    )
+    def test_each_death_gets_its_own_diagnosis(self, returncode, expected, keyword):
+        from app.sandbox.backends import _classify_death
+
+        status, message = _classify_death(returncode)
+        assert status == expected, f"{returncode} -> {status}, expected {expected}"
+        assert keyword in message.lower(), f"{returncode}: {message!r} lacks {keyword!r}"
+
+    def test_a_cpu_kill_is_never_reported_as_memory(self):
+        """The specific regression. SIGXCPU points at an infinite loop, and
+        telling the player it was memory sends them to the wrong fix."""
+        from app.sandbox.backends import _classify_death
+
+        status, message = _classify_death(-24)
+        assert status != ExecStatus.MEMORY
+        assert "memory" not in message.lower()
+
+    def test_a_clean_exit_with_no_result_is_our_fault_not_the_players(self):
+        from app.sandbox.backends import _classify_death
+
+        status, message = _classify_death(0)
+        assert status == ExecStatus.SANDBOX_ERROR
+        assert "bug in the sandbox" in message.lower()
+
+
+class TestBlasThreadsArePinned:
+    """OpenBLAS sizes its buffers from the host CPU count.
+
+    On a many-core machine that allocation alone exceeded the 256MB RLIMIT_AS,
+    so every submission in the container died with "Memory allocation still
+    failed after 10 retries" before running a line of player code. Pinning to
+    one thread also makes the benchmark challenges' timings comparable between
+    runs, which is what lets them claim a speed-up factor honestly.
+    """
+
+    def test_the_runner_pins_every_thread_pool_variable(self):
+        import ast
+        from pathlib import Path
+
+        import app.sandbox.runner_main as runner_module
+
+        source = Path(runner_module.__file__).read_text(encoding="utf-8")
+        tree = ast.parse(source)
+
+        scrub = next(
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name == "_scrub_environment"
+        )
+        pinned = {
+            const.value
+            for node in ast.walk(scrub)
+            for const in ast.walk(node)
+            if isinstance(const, ast.Constant)
+            and isinstance(const.value, str)
+            and const.value.endswith("_NUM_THREADS")
+        }
+        assert {"OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"} <= pinned
+
+    async def test_numpy_runs_under_the_default_memory_limit(self, sandbox_client):
+        """The end-to-end version: import numpy and use it inside the sandbox's
+        real limits. This is what was failing in the container."""
+        request = ExecutionRequest(
+            code=(
+                "import numpy as np\n"
+                "def total(n):\n"
+                "    return float(np.arange(n, dtype=float).sum())"
+            ),
+            tests=[TestCase(name="sums", kind=TestKind.EQUALS, call="total(5)", expect=10.0)],
+            memory_mb=256,
+        )
+        response = await sandbox_client.post("/execute", json=request.to_json_dict())
+        assert response.status_code == 200
+        result = ExecutionResult.from_json_dict(response.json())
+        assert result.status != ExecStatus.MEMORY, (
+            f"numpy blew the memory limit before running: {result.stderr[:300]}"
+        )
+        assert result.passed, result.error_message or result.stderr[:300]

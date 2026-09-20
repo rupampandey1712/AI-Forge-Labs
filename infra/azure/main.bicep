@@ -152,6 +152,35 @@ resource kvAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   }
 }
 
+// Secrets live in the vault, not in the container app definition.
+//
+// WHY THIS RATHER THAN INLINE `value:` SECRETS: an inline secret is part of the
+// container app resource, so anyone with reader access on the app can retrieve
+// it, and rotating it means redeploying the app. A vault-backed secret is
+// fetched at runtime with the managed identity: rotation is a vault write, and
+// the app definition contains a URL rather than a credential.
+//
+// Until this was wired up the vault was decorative — created, granted a role,
+// and referenced by nothing. Infrastructure that exists without being used is
+// worse than absent, because it reads as a control that is in place.
+var secretValues = {
+  'postgres-admin-password': postgresAdminPassword
+  'jwt-secret': jwtSecret
+  'sandbox-token': sandboxToken
+  'llm-api-key': empty(llmApiKey) ? 'unset' : llmApiKey
+}
+
+resource vaultSecrets 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = [
+  for name in items(secretValues): {
+    parent: keyVault
+    name: name.key
+    properties: {
+      value: name.value
+      contentType: 'text/plain'
+    }
+  }
+]
+
 // ── Postgres ────────────────────────────────────────────────────────────────
 resource postgres 'Microsoft.DBforPostgreSQL/flexibleServers@2023-06-01-preview' = {
   name: '${prefix}-pg-${suffix}'
@@ -183,8 +212,11 @@ resource postgres 'Microsoft.DBforPostgreSQL/flexibleServers@2023-06-01-preview'
       mode: 'Disabled'
     }
     authConfig: {
-      passwordAuthEnabled: true
-      activeDirectoryAuthEnabled: true
+      // Both enabled: password auth for the app's connection string, Entra ID
+      // so a human can connect without one being shared around.
+      passwordAuth: 'Enabled'
+      activeDirectoryAuth: 'Enabled'
+      tenantId: subscription().tenantId
     }
   }
 }
@@ -229,6 +261,25 @@ resource redis 'Microsoft.Cache/redis@2023-08-01' = {
       // eviction under pressure is correct behaviour rather than data loss.
       'maxmemory-policy': 'allkeys-lru'
     }
+  }
+}
+
+// These two are composed from keys that only exist once the resources do, so
+// they cannot be passed in as parameters — but they are still credentials and
+// belong in the vault rather than in the app definition.
+resource databaseUrlSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'database-url'
+  properties: {
+    value: 'postgresql+asyncpg://${postgresAdminUser}:${postgresAdminPassword}@${postgres.properties.fullyQualifiedDomainName}:5432/aiforge?ssl=require'
+  }
+}
+
+resource redisUrlSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: keyVault
+  name: 'redis-url'
+  properties: {
+    value: 'rediss://:${redis.listKeys().primaryKey}@${redis.properties.hostName}:6380/0'
   }
 }
 
@@ -293,7 +344,7 @@ resource sandboxApp 'Microsoft.App/containerApps@2024-03-01' = {
   location: location
   tags: union(tags, { component: 'sandbox', trust: 'untrusted' })
   identity: identityConfig
-  dependsOn: [acrPull]
+  dependsOn: [acrPull, kvAccess, vaultSecrets]
   properties: {
     managedEnvironmentId: environment.id
     configuration: {
@@ -309,10 +360,15 @@ resource sandboxApp 'Microsoft.App/containerApps@2024-03-01' = {
           identity: identity.id
         }
       ]
+      // The sandbox's only secret. It reads this from the vault with the same
+      // identity, which is the *only* vault access it has — and it is granted
+      // at the vault level rather than per-secret, which is the one thing about
+      // this arrangement worth revisiting if the vault ever holds more.
       secrets: [
         {
           name: 'sandbox-token'
-          value: sandboxToken
+          keyVaultUrl: '${keyVault.properties.vaultUri}secrets/sandbox-token'
+          identity: identity.id
         }
       ]
     }
@@ -373,7 +429,7 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
   location: location
   tags: union(tags, { component: 'api', trust: 'trusted' })
   identity: identityConfig
-  dependsOn: [acrPull, kvAccess, database]
+  dependsOn: [acrPull, kvAccess, database, vaultSecrets]
   properties: {
     managedEnvironmentId: environment.id
     configuration: {
@@ -395,12 +451,36 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           identity: identity.id
         }
       ]
+      // `keyVaultUrl` + `identity` means the platform fetches the value with the
+      // managed identity at start-up. The app definition holds a URL; the
+      // credential never appears in it, in the deployment history, or in
+      // `az containerapp show`.
       secrets: [
-        { name: 'database-url', value: 'postgresql+asyncpg://${postgresAdminUser}:${postgresAdminPassword}@${postgres.properties.fullyQualifiedDomainName}:5432/aiforge?ssl=require' }
-        { name: 'jwt-secret', value: jwtSecret }
-        { name: 'sandbox-token', value: sandboxToken }
-        { name: 'llm-api-key', value: empty(llmApiKey) ? 'unset' : llmApiKey }
-        { name: 'redis-url', value: 'rediss://:${redis.listKeys().primaryKey}@${redis.properties.hostName}:6380/0' }
+        {
+          name: 'database-url'
+          keyVaultUrl: databaseUrlSecret.properties.secretUri
+          identity: identity.id
+        }
+        {
+          name: 'redis-url'
+          keyVaultUrl: redisUrlSecret.properties.secretUri
+          identity: identity.id
+        }
+        {
+          name: 'jwt-secret'
+          keyVaultUrl: '${keyVault.properties.vaultUri}secrets/jwt-secret'
+          identity: identity.id
+        }
+        {
+          name: 'sandbox-token'
+          keyVaultUrl: '${keyVault.properties.vaultUri}secrets/sandbox-token'
+          identity: identity.id
+        }
+        {
+          name: 'llm-api-key'
+          keyVaultUrl: '${keyVault.properties.vaultUri}secrets/llm-api-key'
+          identity: identity.id
+        }
       ]
     }
     template: {
@@ -425,8 +505,10 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'SANDBOX_SERVICE_TOKEN', secretRef: 'sandbox-token' }
             { name: 'LLM_PROVIDER', value: llmProvider }
             { name: 'LLM_API_KEY', secretRef: 'llm-api-key' }
-            { name: 'AZURE_KEY_VAULT_URI', value: keyVault.properties.vaultUri }
-            { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
+            // No AZURE_KEY_VAULT_URI or AZURE_CLIENT_ID: the application does not
+            // talk to Key Vault itself. The platform resolves the secrets above
+            // before the container starts, so the app only ever sees plain env
+            // vars. Passing vault config it never reads would be cargo cult.
             { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: insights.properties.ConnectionString }
           ]
           probes: [

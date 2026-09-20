@@ -1,185 +1,131 @@
-# Deployment
+# Running and deploying
 
-Three deployable images, one of which is a security boundary rather than a
-scaling decision. Read [ADR-001](adr/ADR-001-modular-monolith-with-one-split.md)
-first if you want to know why there are three and not one, or three and not ten.
+**Everything runs locally in Docker. There is no Azure account and nothing here
+connects to one.** The Bicep template in `infra/azure/` is a reference artefact
+— compiled and checked, never deployed. That distinction is kept explicit below
+rather than implied, because a template presented as a deployment path when
+nobody can deploy it is worse than no template.
+
+Three images, one of which is a security boundary rather than a scaling
+decision. Read [ADR-001](adr/ADR-001-modular-monolith-with-one-split.md) for why
+there are three and not one, or three and not ten.
 
 ```
-Internet ──> aiforge-web ──> aiforge-api ──internal──> aiforge-sandbox-service
-                                  │
-                                  ├──> Postgres Flexible Server
-                                  ├──> Redis
-                                  └──> Key Vault  (managed identity)
+Browser ──> web ──> api ──internal──> sandbox
+                     │
+                     ├──> Postgres
+                     └──> Redis
 ```
 
-The sandbox has **no public ingress**. Only the API can reach it. It holds no
-credentials and has no database connection, because it executes player code by
-design and the only defence that matters against a sandbox escape is that there
-is nothing on the other side worth taking.
+## The fastest path
 
-## Local: the split, on your machine
+No Postgres, no Docker, no API key. Falls back to SQLite and the deterministic
+offline model:
 
-The default compose stack runs the sandbox in-process, which is fine for
-development. To run the deployed shape:
+```bash
+cd backend
+python -m app.cli bootstrap     # migrate, seed, create a player, simulate 45 days
+uvicorn app.main:app --reload
+
+cd frontend && npm run dev
+```
+
+Sign in with **player@aiforge.dev** / **forge-me-2026**. The bootstrap simulates
+45 days of practice history, so the retention dashboard has a real decay curve
+rather than an empty state.
+
+## The full stack
+
+```bash
+docker compose up --build
+```
+
+Postgres, Redis, migrations as a one-shot job, seeding, the API, the worker and
+the frontend. Healthchecks gate the ordering, so the API does not start against
+a database that is not yet accepting connections.
+
+## The split: the sandbox as its own service
+
+This is the shape that matters, and it is the one the spec requires (§35/§66):
 
 ```bash
 docker compose --profile split up --build
 ```
 
-That starts `sandbox` on an `internal: true` network with no published ports,
-and `backend-split` with `SANDBOX_MODE=remote` pointed at it. If you can `curl`
-the sandbox from your laptop, the boundary is broken — it should be unreachable.
+`sandbox` runs on an `internal: true` network with **no published ports**.
+`backend-split` runs with `SANDBOX_MODE=remote` pointed at it.
 
-Verify the boundary is real:
+| | api | sandbox |
+|---|---|---|
+| Reachable from your laptop | yes | **no** |
+| Database credentials | yes | no |
+| JWT signing key | yes | no |
+| Executes player code | **no** | yes |
+
+Verify the boundary is real rather than assumed:
 
 ```bash
-# The API is up and reports remote mode.
+# The API reports remote mode.
 curl -s localhost:8000/api/v1/health/info | jq .sandbox_mode      # "remote"
 
-# The sandbox is not reachable from outside the internal network.
+# The sandbox is NOT reachable from outside the internal network.
 curl -s --max-time 3 localhost:8001/health                        # connection refused
-
-# A submission still grades, which means it crossed the boundary.
-# (log in first; see README for the demo credentials)
 ```
 
-`SANDBOX_MODE=remote` **fails to start** if `SANDBOX_SERVICE_URL` is unset,
-rather than falling back to a local subprocess. That is deliberate: a silent
-fallback would mean a deployment that believes it is isolated and is not.
+If that second command succeeds, the boundary is gone.
 
-## Azure
-
-### What gets created
-
-| Resource | SKU | Why this one |
-|---|---|---|
-| Container Apps environment | Consumption | Scale-to-zero, managed ingress, no cluster to operate |
-| Container Registry | Basic | Three images; Premium buys geo-replication nothing needs |
-| Postgres Flexible Server | B1ms (B2s in prod) | Spiky low load; ~1/10th the cost of the smallest General Purpose tier |
-| Redis | Basic C0 | Cache only — everything in it is rebuildable from Postgres |
-| Key Vault | Standard, RBAC | RBAC rather than access policies, so grants appear in subscription-wide access reviews |
-| Log Analytics + App Insights | PerGB2018 | 30-day retention |
-| User-assigned managed identity | — | Must exist *before* the apps, to hold registry and vault roles |
-
-### Deploy
-
-```bash
-RG=aiforge-dev
-az group create -n $RG -l uksouth
-
-# Build and push. Tag with the git SHA — never `latest`, or a rollback has
-# nothing to roll back to.
-TAG=$(git rev-parse --short HEAD)
-ACR=$(az acr list -g $RG --query "[0].name" -o tsv)
-
-az acr build -r $ACR -t aiforge-api:$TAG              -f backend/Dockerfile backend
-az acr build -r $ACR -t aiforge-web:$TAG              -f frontend/Dockerfile frontend
-az acr build -r $ACR -t aiforge-sandbox-service:$TAG  -f infra/docker/sandbox-service.Dockerfile backend
-
-az deployment group create \
-  -g $RG \
-  -f infra/azure/main.bicep \
-  -p environmentName=dev \
-     imageTag=$TAG \
-     postgresAdminPassword="$(openssl rand -base64 32)" \
-     jwtSecret="$(openssl rand -base64 48)" \
-     sandboxToken="$(openssl rand -base64 32)" \
-     llmProvider=gemini \
-     llmApiKey="$GEMINI_API_KEY"
-```
-
-Outputs give you the web URL, the API URL, and the sandbox's internal FQDN —
-the last one is printed specifically so you can confirm it is not public.
-
-### Migrations
-
-The API does **not** run migrations on startup. N replicas starting at once
-would race, and the loser crashes. Run them as a one-shot job:
-
-```bash
-az containerapp job create \
-  -g $RG -n aiforge-migrate \
-  --environment aiforge-dev-env \
-  --trigger-type Manual \
-  --replica-timeout 600 \
-  --image $ACR.azurecr.io/aiforge-api:$TAG \
-  --command "alembic" "upgrade" "head" \
-  --secrets "database-url=<connection string>" \
-  --env-vars "DATABASE_URL=secretref:database-url"
-
-az containerapp job start -g $RG -n aiforge-migrate
-```
-
-Then seed once, with `python -m app.cli seed`, using the same job shape.
-
-### Rolling back
-
-Container Apps keeps revisions. A bad deploy is:
-
-```bash
-az containerapp revision list -g $RG -n aiforge-dev-api -o table
-az containerapp ingress traffic set -g $RG -n aiforge-dev-api \
-  --revision-weight <previous-revision>=100
-```
-
-Seconds, not a rebuild. This is why the image tag is the git SHA — a rollback
-needs a specific prior artefact to point at, and `latest` is not one.
+`SANDBOX_MODE=remote` **fails to start** when `SANDBOX_SERVICE_URL` is unset,
+rather than falling back to a local subprocess. A silent fallback would mean a
+deployment that believes it is isolated and is not.
 
 ## Configuration
 
 | Variable | Where | Notes |
 |---|---|---|
-| `DATABASE_URL` | api | Container Apps secret, from Bicep |
-| `REDIS_URL` | api | Container Apps secret |
-| `JWT_SECRET` | api | 32+ random bytes. Rotating it logs everyone out. |
-| `SANDBOX_MODE` | api | `remote` in Azure. Anything else means the API can execute code. |
-| `SANDBOX_SERVICE_URL` | api | Internal FQDN. Required when mode is `remote`. |
-| `SANDBOX_SERVICE_TOKEN` | api + sandbox | Must match. Compared with `compare_digest`. |
-| `LLM_PROVIDER` / `LLM_API_KEY` | api | `mock` keeps every AI lab working offline, deterministically. |
-| `SANDBOX_TIMEOUT_CEILING` | sandbox | Hard cap. The sandbox clamps what it is handed rather than trusting it. |
-| `SANDBOX_MEMORY_CEILING_MB` | sandbox | Same. |
+| `DATABASE_URL` | api | Empty falls back to SQLite |
+| `REDIS_URL` | api | Optional; caching degrades gracefully without it |
+| `SECRET_KEY` | api | 32+ bytes. Changing it logs everyone out. |
+| `SANDBOX_MODE` | api | `subprocess`, `docker`, `remote` or `disabled` |
+| `SANDBOX_SERVICE_URL` | api | Required when mode is `remote` |
+| `SANDBOX_SERVICE_TOKEN` | api + sandbox | Must match; compared with `compare_digest` |
+| `LLM_PROVIDER` | api | `mock` keeps every AI lab working offline and deterministic |
+| `SANDBOX_TIMEOUT_CEILING` | sandbox | Hard cap; the sandbox clamps what it is handed |
 
-Nothing that carries a secret is read by the sandbox service, and it imports
-`app.core.config` not at all — see the boundary test.
+## The Bicep template — reference only
 
-## What this deployment does not do yet
+`infra/azure/main.bicep` describes the same three-container shape on Azure
+Container Apps. **It has never been deployed and there is no subscription
+behind it.** It is kept because it is a concrete statement of the production
+shape and because the Architecture Tower missions reference it.
 
-Stated rather than implied, because an unlisted gap reads as an oversight:
+What *is* verified, with no Azure account and no login:
 
-- **Postgres is reachable from Azure services**, via the `AllowAzureServices`
-  firewall rule, because Container Apps egress IPs are not fixed. The correct
-  production answer is a VNet-integrated environment with a private endpoint,
-  which is a larger change than this template makes. Fine for dev; do the VNet
-  work before anything real lives in the database.
-- **No custom domain or managed certificate.** Container Apps gives you a
-  `*.azurecontainerapps.io` hostname with TLS; a real deployment wants
-  `az containerapp hostname bind`.
-- **No autoscale on anything but HTTP concurrency.** Queue-depth scaling via
-  KEDA is the next step if sandbox executions start queueing.
-- **The Bicep has not been deployed from this repository.** It is written
-  against the resource schemas and reviewed, but `az` was not available in the
-  environment where it was authored, so it has not been `az bicep build`-ed or
-  run. Validate it before trusting it:
-  ```bash
-  az bicep build -f infra/azure/main.bicep
-  az deployment group validate -g $RG -f infra/azure/main.bicep -p ...
-  ```
+```bash
+docker run --rm -v "$PWD/infra/azure:/work" -w /work \
+  mcr.microsoft.com/azure-cli:latest bash validate.sh
+```
 
-## Cost
+That compiles the template, prints the resource inventory, and asserts the
+invariants that matter:
 
-Rough monthly, UK South, dev sizing, assuming light use:
+- every credential parameter is a `securestring`
+- the sandbox container app has `external: false` ingress
+- the sandbox holds no database, cache or signing-key wiring
 
-| | |
+Compiling it found three real defects that reading it had not: two wrong
+property names on the Postgres `authConfig` block, and a Key Vault that was
+created, granted a role, and referenced by nothing.
+
+What that check **cannot** tell you: `az deployment group validate` and
+`what-if` need a live tenant, because they check quota, policy and name
+availability. So the template is proven well-formed, not proven deployable.
+
+## When something breaks
+
+| Symptom | Look at |
 |---|---|
-| Container Apps (API min 1 replica, 0.5 vCPU) | ~£25 |
-| Container Apps (sandbox min 1 replica, 1 vCPU) | ~£35 |
-| Container Apps (web, scale to zero) | ~£0 |
-| Postgres B1ms + 32GB | ~£15 |
-| Redis Basic C0 | ~£12 |
-| Registry Basic, Key Vault, Log Analytics | ~£8 |
-| **Total** | **~£95** |
-
-Setting `apiMinReplicas=0` and `sandboxMinReplicas=0` takes this to near zero
-when idle, at the cost of a cold start of several seconds on the first request —
-which for a single-player game you open in the evening is usually the right
-trade.
+| Code submissions fail | `/api/v1/health/info` — check `sandbox_mode` |
+| AI labs feel canned | Same endpoint — `llm_provider: mock` means offline |
+| Frontend renders `undefined` | The contract test; regenerate `openapi.json` |
+| Content gate failing | It names the concept, challenge or question |
+| `$'\r': command not found` | A shell script picked up CRLF; `.gitattributes` pins `*.sh` to LF |

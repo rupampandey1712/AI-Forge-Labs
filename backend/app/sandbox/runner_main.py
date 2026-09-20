@@ -103,6 +103,29 @@ def _scrub_environment() -> None:
             del os.environ[key]
     os.environ["AIFORGE_SANDBOX"] = "1"
 
+    # Pin the BLAS/OpenMP thread pools to one thread. Two independent reasons,
+    # and the first one was found the hard way by running the real container:
+    #
+    # 1. CORRECTNESS. OpenBLAS sizes its per-thread buffers from the host CPU
+    #    count. On a many-core machine that allocation alone can exceed the
+    #    256MB RLIMIT_AS, so *every* submission died with "OpenBLAS error:
+    #    Memory allocation still failed after 10 retries" before running a line
+    #    of the player's code.
+    # 2. MEASUREMENT. The benchmark challenges claim things like "your
+    #    vectorised version is 23x faster". That number is meaningless if the
+    #    thread count varies with whatever else the host is doing, so timings
+    #    are taken single-threaded and are therefore comparable between runs.
+    #
+    # Set after the scrub, or the scrub would remove them.
+    for variable in (
+        "OPENBLAS_NUM_THREADS",
+        "OMP_NUM_THREADS",
+        "MKL_NUM_THREADS",
+        "NUMEXPR_NUM_THREADS",
+        "VECLIB_MAXIMUM_THREADS",
+    ):
+        os.environ[variable] = "1"
+
 
 def _disable_network() -> None:
     """Best-effort in-process network block for the subprocess backend.

@@ -341,44 +341,24 @@ jobs:
           fi
           echo "✓ sandbox service contains only app.sandbox and has no DB driver"
 
-      - name: The sandbox service runs a submission over HTTP
+      - name: The sandbox service works over HTTP
         run: |
-          docker run -d --name sandbox \
-            -e SANDBOX_SERVICE_TOKEN=ci-token \
-            -p 8001:8001 aiforge-sandbox-service:ci
+          docker run -d --name sandbox             -e SANDBOX_SERVICE_TOKEN=ci-token             -p 8001:8001 aiforge-sandbox-service:ci
           for i in $(seq 1 30); do
             curl -fsS http://localhost:8001/health >/dev/null 2>&1 && break
             sleep 1
           done
-          curl -fsS http://localhost:8001/health || { docker logs sandbox; exit 1; }
-
-          # Unauthenticated callers must be refused.
-          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
-            http://localhost:8001/execute -H 'Content-Type: application/json' \
-            -d '{"code":"x = 1"}')
-          if [ "$code" != "401" ]; then
-            echo "::error::sandbox accepted an unauthenticated request ($code)"
-            docker rm -f sandbox; exit 1
-          fi
-
-          # An authenticated submission actually executes and grades.
-          # The payload goes through a file so the embedded newline in `code`
-          # stays a JSON \n escape rather than being mangled by shell quoting.
-          cat > /tmp/submission.json <<'JSON'
-          {"code": "def double(x):\n    return x * 2",
-           "tests": [{"name": "t", "kind": "equals", "call": "double(4)", "expect": 8}]}
-          JSON
-          body=$(curl -fsS -X POST http://localhost:8001/execute \
-            -H 'Content-Type: application/json' \
-            -H 'X-Sandbox-Token: ci-token' \
-            --data-binary @/tmp/submission.json)
-          echo "$body"
-          echo "$body" | grep -q '"passed": true' || {
-            echo "::error::sandbox did not execute the submission correctly"
-            docker rm -f sandbox; exit 1
-          }
+          # Same script anyone can run by hand against a local container, so a
+          # CI failure here is reproducible in one command rather than being a
+          # pile of inline curl only the workflow knows about.
+          bash infra/docker/smoke-sandbox.sh http://localhost:8001 ci-token
           docker rm -f sandbox
-          echo "✓ sandbox service executes over HTTP and refuses anonymous callers"
+
+      - name: The Bicep template compiles and holds its invariants
+        run: |
+          # No Azure account and no login needed: `bicep build` catches wrong
+          # property names and bad API shapes, which is where Bicep bugs live.
+          docker run --rm -v "$PWD/infra/azure:/work" -w /work             mcr.microsoft.com/azure-cli:latest bash validate.sh
 
       - name: Backend image starts and reports healthy
         run: |
