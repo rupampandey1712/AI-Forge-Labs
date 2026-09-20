@@ -12,7 +12,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Button, Card, Chip, EmptyState, LoadingPanel } from '@/components/ui';
-import { TierChip } from '@/components/game/bits';
+import { Stagger, StaggerItem, TierChip } from '@/components/game/bits';
 import { useRewards } from '@/stores/game';
 import { cn, duration, titleCase } from '@/lib/utils';
 import type { Grade, Question } from '@/types/api';
@@ -71,9 +71,9 @@ export default function Practice() {
             description="Loosen the filters, or seed more content packs."
           />
         ) : (
-          <ul className="grid gap-2 sm:grid-cols-2">
+          <Stagger as="ul" delay={0.03} className="grid list-none gap-2 sm:grid-cols-2">
             {challenges.data?.items.map((challenge) => (
-              <li key={challenge.slug}>
+              <StaggerItem as="li" key={challenge.slug} interactive>
                 <Link
                   to={`/app/challenge/${challenge.slug}`}
                   className={cn(
@@ -103,9 +103,9 @@ export default function Practice() {
                     </div>
                   </div>
                 </Link>
-              </li>
+              </StaggerItem>
             ))}
-          </ul>
+          </Stagger>
         )}
       </Card>
     </div>

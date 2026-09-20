@@ -37,6 +37,8 @@ import { api } from '@/lib/api';
 import { useAuth, useUI } from '@/stores/game';
 import { cn, compactNumber, RANK_TITLES } from '@/lib/utils';
 import { Progress, Tooltip } from '@/components/ui';
+import { CountUp } from '@/components/game/bits';
+import { pageTransition, spring } from '@/lib/motion';
 import { RewardOverlay } from '@/components/game/RewardOverlay';
 
 interface NavItem {
@@ -240,9 +242,21 @@ export function AppShell() {
                   >
                     <div className="w-full max-w-sm">
                       <div className="mb-1 flex items-baseline justify-between text-[11px]">
-                        <span className="font-medium text-forge-300">Level {profile.level}</span>
-                        <span className="font-mono tabular-nums text-forge-500">
-                          {compactNumber(profile.total_xp)} XP
+                        <motion.span
+                          // Keyed on the level so a level-up re-mounts and pops.
+                          // Without the key React reuses the node, and the single
+                          // most important number in the game would change with
+                          // no acknowledgement at all.
+                          key={profile.level}
+                          initial={{ scale: 1.6, color: '#22d3ee' }}
+                          animate={{ scale: 1, color: '#8b99c4' }}
+                          transition={spring}
+                          className="inline-block font-medium"
+                        >
+                          Level {profile.level}
+                        </motion.span>
+                        <span className="font-mono text-forge-500">
+                          <CountUp value={profile.total_xp} format={compactNumber} /> XP
                         </span>
                       </div>
                       <Progress value={profile.progress_pct / 100} height={5} />
@@ -260,7 +274,11 @@ export function AppShell() {
                   <Tooltip label="Coins — spend on hints and mentor consults">
                     <span className="flex items-center gap-1 text-signal-warn">
                       <Coins className="h-4 w-4" aria-hidden />
-                      <span className="font-mono tabular-nums">{compactNumber(profile.coins)}</span>
+                      <CountUp
+                        value={profile.coins}
+                        format={compactNumber}
+                        className="font-mono"
+                      />
                     </span>
                   </Tooltip>
                 </div>
@@ -269,8 +287,24 @@ export function AppShell() {
           </div>
         </header>
 
+        {/* Route transition. `mode="wait"` lets the outgoing page finish
+            leaving before the next one enters — without it the two overlap and
+            the layout jumps as both are briefly in flow. The key is the
+            pathname, so a param change (challenge/:slug) also transitions,
+            which is what makes moving between two missions feel like
+            navigation rather than a content swap. */}
         <main className="min-w-0 flex-1 px-4 py-6 lg:px-8">
-          <Outlet />
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              variants={pageTransition}
+              initial="hidden"
+              animate="show"
+              exit="exit"
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
 

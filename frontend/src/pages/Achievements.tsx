@@ -1,6 +1,7 @@
 import { Award, Lock, Trophy } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { Stagger, StaggerItem } from '@/components/game/bits';
 import { Card, LoadingPanel, Progress, Stat, Tab, TabList, TabPanel, Tabs } from '@/components/ui';
 import { cn, relativeTime, titleCase } from '@/lib/utils';
 import type { Achievement, Badge } from '@/types/api';
@@ -60,17 +61,23 @@ export default function Achievements() {
         </TabList>
 
         <TabPanel value="badges">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {badges.data?.map((badge) => <BadgeCard key={badge.slug} badge={badge} />)}
-          </div>
+          <Stagger delay={0.03} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {badges.data?.map((badge) => (
+              <StaggerItem key={badge.slug} interactive={badge.earned}>
+                <BadgeCard badge={badge} />
+              </StaggerItem>
+            ))}
+          </Stagger>
         </TabPanel>
 
         <TabPanel value="achievements">
-          <div className="space-y-3">
+          <Stagger className="space-y-3">
             {achievements.data?.map((achievement) => (
-              <AchievementRow key={achievement.slug} achievement={achievement} />
+              <StaggerItem key={achievement.slug}>
+                <AchievementRow achievement={achievement} />
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
         </TabPanel>
 
         <TabPanel value="leaderboard">

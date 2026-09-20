@@ -1,9 +1,11 @@
 /** Small, reusable game-domain display components. */
 
 import { motion } from 'framer-motion';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Flame } from 'lucide-react';
 import { cn, KIND_STYLES, masteryColor, severityColor, TIER_LABELS, tierColor } from '@/lib/utils';
 import { Tooltip } from '@/components/ui';
+import { fadeUp, hoverLift, REDUCED_MOTION, stagger } from '@/lib/motion';
 
 /** The difficulty ladder made visible. Tier is the spine of the whole game. */
 export function TierChip({ tier, showLabel = false }: { tier: number; showLabel?: boolean }) {
@@ -180,4 +182,118 @@ export function KindChip({ kind }: { kind: string }) {
     className: 'border-forge-600 bg-forge-800 text-forge-300',
   };
   return <span className={cn('chip', style.className)}>{style.label}</span>;
+}
+
+/**
+ * A list or grid whose children cascade in.
+ *
+ * WHY A WRAPPER rather than animating every card at its own call site: the
+ * cascade only reads as deliberate if every list in the app uses the same
+ * timing, and a per-page `transition={{ delay: i * 0.05 }}` guarantees it will
+ * not. This also keeps the index arithmetic out of the page — children inherit
+ * `hidden`/`show` from the parent variant, so no child needs to know its own
+ * position.
+ *
+ * `as` exists because the semantic element matters: a list of concepts should
+ * be a `<ul>` even when it is laid out as a grid.
+ */
+export function Stagger({
+  children,
+  className,
+  delay = 0.04,
+  as = 'div',
+}: {
+  children: ReactNode;
+  className?: string;
+  /** Seconds between children. Small on purpose — 12 cards at 60ms is already
+   *  at the edge of feeling slow rather than intentional. */
+  delay?: number;
+  as?: 'div' | 'ul';
+}) {
+  const Component = as === 'ul' ? motion.ul : motion.div;
+  return (
+    <Component
+      variants={stagger(delay)}
+      initial="hidden"
+      animate="show"
+      className={className}
+    >
+      {children}
+    </Component>
+  );
+}
+
+/**
+ * One child of a <Stagger>. Lifts on hover when it is interactive.
+ *
+ * Note it renders a plain `motion.div` wrapper rather than cloning the child:
+ * cards in this codebase are `<Link>`s, `<button>`s and `<section>`s, and
+ * wrapping is the only approach that works for all three without each caller
+ * knowing which it has.
+ */
+export function StaggerItem({
+  children,
+  className,
+  interactive = false,
+  as = 'div',
+}: {
+  children: ReactNode;
+  className?: string;
+  interactive?: boolean;
+  as?: 'div' | 'li';
+}) {
+  const Component = as === 'li' ? motion.li : motion.div;
+  return (
+    <Component variants={fadeUp} className={className} {...(interactive ? hoverLift : {})}>
+      {children}
+    </Component>
+  );
+}
+
+/**
+ * A number that counts up to its value rather than snapping.
+ *
+ * Used for XP, coins and streaks, where the *change* is the reward. A total
+ * that jumps from 1,240 to 1,308 communicates the new total; one that counts up
+ * communicates that you earned 68.
+ *
+ * Skips the animation entirely under reduced motion, and on the first render,
+ * so a page load does not spend 700ms counting every stat up from zero.
+ */
+export function CountUp({
+  value,
+  duration = 0.7,
+  className,
+  format = (n: number) => Math.round(n).toLocaleString(),
+}: {
+  value: number;
+  duration?: number;
+  className?: string;
+  format?: (n: number) => string;
+}) {
+  const [display, setDisplay] = useState(value);
+  const previous = useRef(value);
+
+  useEffect(() => {
+    const from = previous.current;
+    previous.current = value;
+    if (REDUCED_MOTION || from === value) {
+      setDisplay(value);
+      return;
+    }
+    const start = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / (duration * 1000));
+      // Ease-out cubic: fast at first, settling at the end. A linear count
+      // reads as a loading spinner rather than as a value arriving.
+      const eased = 1 - (1 - t) ** 3;
+      setDisplay(from + (value - from) * eased);
+      if (t < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value, duration]);
+
+  return <span className={cn('tabular-nums', className)}>{format(display)}</span>;
 }

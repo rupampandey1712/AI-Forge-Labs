@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Card, Chip, EmptyState, LoadingPanel } from '@/components/ui';
-import { MasteryBar } from '@/components/game/bits';
+import { MasteryBar, Stagger, StaggerItem } from '@/components/game/bits';
 import { cn, titleCase } from '@/lib/utils';
 
 export default function Concepts() {
@@ -78,10 +78,10 @@ export default function Concepts() {
           />
         </Card>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <Stagger as="ul" className="grid list-none gap-3 md:grid-cols-2">
           {concepts.data?.items.map((concept) => (
+            <StaggerItem as="li" key={concept.slug} interactive>
             <Link
-              key={concept.slug}
               to={`/app/concepts/${concept.slug}`}
               className={cn(
                 'panel panel-hover p-4',
@@ -123,8 +123,9 @@ export default function Concepts() {
                 />
               )}
             </Link>
+            </StaggerItem>
           ))}
-        </div>
+        </Stagger>
       )}
     </div>
   );

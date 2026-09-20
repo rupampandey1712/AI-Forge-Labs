@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { Card, Chip, EmptyState, LoadingPanel } from '@/components/ui';
-import { KindChip, TierChip } from '@/components/game/bits';
+import { KindChip, Stagger, StaggerItem, TierChip } from '@/components/game/bits';
 import { cn, titleCase } from '@/lib/utils';
 import type { MissionSummary } from '@/types/api';
 
@@ -80,11 +80,13 @@ export default function Missions() {
           />
         </Card>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2">
+        <Stagger className="grid gap-3 md:grid-cols-2">
           {[...unlocked, ...locked].map((mission, i) => (
-            <MissionCard key={mission.slug} mission={mission} index={i} />
+            <StaggerItem key={mission.slug} interactive={!mission.locked}>
+              <MissionCard mission={mission} index={i} />
+            </StaggerItem>
           ))}
-        </div>
+        </Stagger>
       )}
     </div>
   );
