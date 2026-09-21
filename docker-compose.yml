@@ -238,8 +238,70 @@ services:
     command: ["python", "-c", "print('sandbox image built')"]
     restart: "no"
 
+  # ── Local Azure services (spec: local development only) ────────────────────
+  #
+  #   docker compose --profile azure up --build
+  #
+  # Azurite for blob storage and the Service Bus emulator for the event queue.
+  # Neither is required: the default backends are a directory and an in-process
+  # asyncio queue, and the zero-setup path must keep working with nothing
+  # running. These exist so the *other* code path is exercised against real
+  # broker and real storage semantics rather than a dict pretending to be one.
+  azurite:
+    profiles: ["azure"]
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    restart: unless-stopped
+    command: azurite-blob --blobHost 0.0.0.0 --blobPort 10000 --location /data
+    ports:
+      - "10000:10000"
+    volumes:
+      - azurite_data:/data
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "10000"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+  # The Service Bus emulator is a real broker implementation and keeps its
+  # state in SQL Server, which is why this dependency exists and is not
+  # incidental.
+  servicebus-db:
+    profiles: ["azure"]
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Forge-Local-Dev-2026!}
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 40s
+
+  servicebus:
+    profiles: ["azure"]
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    restart: unless-stopped
+    environment:
+      ACCEPT_EULA: "Y"
+      SQL_SERVER: servicebus-db
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Forge-Local-Dev-2026!}
+    ports:
+      - "5672:5672"
+    volumes:
+      # Queues are declared up front: the emulator creates only what this file
+      # names, so a queue missing here fails at publish rather than being
+      # auto-created the way a local broker might.
+      - ./infra/docker/servicebus-config.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+    depends_on:
+      servicebus-db:
+        condition: service_healthy
+
 volumes:
   postgres_data:
+  azurite_data:
 
 networks:
   default:

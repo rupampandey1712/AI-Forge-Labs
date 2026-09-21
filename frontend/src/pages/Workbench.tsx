@@ -30,6 +30,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiRequestError } from '@/lib/api';
 import { Button, Card, Chip, LoadingPanel, Modal, Spinner, Tooltip } from '@/components/ui';
 import { SeverityChip, TierChip } from '@/components/game/bits';
+import { FigureGallery } from '@/components/game/FigureGallery';
 import { useRewards, useUI } from '@/stores/game';
 import { cn, duration, titleCase } from '@/lib/utils';
 import type { Grade, TestResult } from '@/types/api';
@@ -377,6 +378,12 @@ export default function Workbench() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Figures render below the result rather than inside it: a plot is
+              the answer for a data-viz challenge, not a detail of the run. */}
+          {grade?.figures && grade.figures.length > 0 && (
+            <FigureGallery paths={grade.figures} />
+          )}
 
           {/* ── Explain (spec §41) ─────────────────────────────────────── */}
           <Card

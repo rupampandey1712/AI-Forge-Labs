@@ -260,7 +260,105 @@ class GradingService:
                 },
             )
         )
+
+        # Everything above is the player's own result and is committed with the
+        # request. What follows is *derived* data — the leaderboard, the decay
+        # cache, the stored figures — which nobody is waiting on and which the
+        # periodic jobs rebuild anyway. Publishing rather than computing it here
+        # keeps a submission fast, and `publish` never raises: a queue outage
+        # must not fail a grade the player has already earned.
+        out.figures = await self._store_figures(profile.id, challenge.slug, result)
+        await self._publish_effects(profile.id, challenge, result, score, passed)
         return out
+
+    async def _publish_effects(
+        self,
+        profile_id: uuid.UUID,
+        challenge: Challenge,
+        result: Any,
+        score: float,
+        passed: bool,
+    ) -> None:
+        """Fan the post-submission effects onto the queue.
+
+        `partition_key` is the player id so that two submissions from one person
+        stay ordered relative to each other, while different players have no
+        ordering relationship and can be processed in parallel.
+        """
+        from app.queue import Event, EventType, publish
+
+        key = str(profile_id)
+        events = [
+            Event(
+                type=EventType.SUBMISSION_GRADED,
+                partition_key=key,
+                payload={
+                    "profile_id": key,
+                    "challenge_slug": challenge.slug,
+                    "score": score,
+                    "passed": passed,
+                },
+            )
+        ]
+
+        if challenge.concept_slugs:
+            events.append(
+                Event(
+                    type=EventType.CONCEPT_PRACTISED,
+                    partition_key=key,
+                    payload={"profile_id": key, "concept_slugs": list(challenge.concept_slugs)},
+                )
+            )
+
+        for event in events:
+            await publish(event)
+
+    async def _store_figures(
+        self, profile_id: uuid.UUID, challenge_slug: str, result: Any
+    ) -> list[str]:
+        """Write any matplotlib figures the run produced and return their URLs.
+
+        INLINE, NOT ON THE QUEUE, and that is a correction to how this was first
+        built. The grade response carries these URLs and the player is looking
+        at it, so deferring the write means an image tag pointing at something
+        that does not exist yet — a race dressed up as asynchrony. A local write
+        or a single blob PUT is a few milliseconds; that is not worth a queue.
+
+        Storage failing must not fail the grade. The player's code was correct
+        or it was not, and that verdict is already computed — losing the picture
+        is a degraded result, losing the grade is a lost attempt.
+        """
+        figures = getattr(result, "figures", None) or []
+        if not figures:
+            return []
+
+        import base64
+
+        from app.storage import StorageError, get_storage
+        from app.storage.service import figure_key
+
+        storage = get_storage()
+        urls: list[str] = []
+        for figure in figures:
+            encoded = figure.get("data")
+            if not encoded:
+                continue
+            try:
+                raw = base64.b64decode(encoded, validate=True)
+                ref = await storage.put(
+                    figure_key(str(profile_id), challenge_slug, raw),
+                    raw,
+                    content_type="image/png",
+                    metadata={"challenge": challenge_slug},
+                )
+                urls.append(ref.url)
+            except (StorageError, ValueError) as exc:
+                log.warning(
+                    "grading.figure_not_stored",
+                    challenge=challenge_slug,
+                    error=str(exc)[:200],
+                )
+        return urls
 
     async def _measure_speedup(self, challenge: Challenge, code: str) -> float | None:
         if not challenge.baseline_code:

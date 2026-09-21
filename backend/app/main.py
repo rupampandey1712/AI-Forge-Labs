@@ -9,6 +9,8 @@ test flakiness.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -25,7 +27,7 @@ from app.api.middleware import (
     RequestContextMiddleware,
     SecurityHeadersMiddleware,
 )
-from app.api.routes import auth, content, gameplay, health, labs, player
+from app.api.routes import artifacts, auth, content, gameplay, health, labs, player
 from app.core.config import settings
 from app.core.errors import ForgeError
 from app.core.logging import configure_logging, get_logger
@@ -89,10 +91,51 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         if settings.app_env == "production":
             raise
 
+    # ── The event consumer ───────────────────────────────────────────────
+    # WHERE THE CONSUMER RUNS depends on the backend, and the reason is not
+    # arbitrary:
+    #
+    #   memory      the queue is an asyncio.Queue inside THIS process, so the
+    #               consumer has to be here — no other process can see it.
+    #   servicebus  the broker is external, so the worker owns the consumer and
+    #               the API is a pure producer. Running one here too would give
+    #               the API background database work it is not sized for.
+    #
+    # Importing handlers is what registers them; it is explicit rather than a
+    # package side effect so the registration point is greppable.
+    import app.queue.handlers  # noqa: F401  (registers the handlers)
+    from app.queue import get_queue
+
+    consumer_task: asyncio.Task[None] | None = None
+    consumer_stop = asyncio.Event()
+
+    if settings.queue_backend == "memory":
+        from app.queue.consumer import run_memory_consumer
+
+        consumer_task = asyncio.create_task(
+            run_memory_consumer(get_queue(), consumer_stop),
+            name="event-consumer",
+        )
+        log.info("app.consumer_started", backend="memory")
+    else:
+        log.info("app.consumer_delegated", backend=settings.queue_backend, to="worker")
+
     yield
+
+    if consumer_task is not None:
+        consumer_stop.set()
+        # Bounded wait: a consumer stuck on a slow handler must not hold
+        # shutdown open indefinitely. The events it drops are derived data the
+        # periodic jobs rebuild.
+        with contextlib.suppress(TimeoutError, asyncio.CancelledError):
+            async with asyncio.timeout(5.0):
+                await consumer_task
+        if not consumer_task.done():
+            consumer_task.cancel()
 
     from app.core.cache import get_cache
 
+    await get_queue().close()
     await get_cache().close()
     await dispose_engine()
     log.info("app.stopped")
@@ -139,6 +182,7 @@ def create_app(**overrides: Any) -> FastAPI:
     app.include_router(content.router, prefix=prefix)
     app.include_router(gameplay.router, prefix=prefix)
     app.include_router(labs.router, prefix=prefix)
+    app.include_router(artifacts.router, prefix=prefix)
 
     @app.get("/", include_in_schema=False)
     async def root() -> dict[str, str]:

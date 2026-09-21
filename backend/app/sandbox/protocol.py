@@ -119,6 +119,10 @@ class ExecutionResult:
     traceback: str | None = None
     benchmark_ms: float | None = None
     truncated: bool = False
+    #: Base64 PNGs the submission left open. Returned inline rather than
+    #: uploaded because the sandbox holds no credentials — the game server
+    #: stores them. See app/storage/__init__.py.
+    figures: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def tests_total(self) -> int:
@@ -182,4 +186,5 @@ class ExecutionResult:
             traceback=data.get("traceback"),
             benchmark_ms=data.get("benchmark_ms"),
             truncated=data.get("truncated", False),
+            figures=list(data.get("figures", [])),
         )

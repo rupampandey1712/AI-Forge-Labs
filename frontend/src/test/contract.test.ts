@@ -81,6 +81,7 @@ const CALLS: [string, string][] = [
   ['post', '/code/execute'],
   ['get', '/journal'],
   ['post', '/journal'],
+  ['get', '/artifacts/{key}'],
   ['get', '/labs/status'],
   ['post', '/labs/transformer/attention'],
   ['post', '/labs/transformer/tokenize'],
@@ -142,7 +143,7 @@ describe('response shapes', () => {
   it.each([
     ['PlayerProfileOut', ['level', 'rank', 'total_xp', 'progress_pct', 'current_streak', 'experience_band']],
     ['DecayAlertOut', ['severity', 'headline', 'detail', 'from_mastery', 'to_mastery']],
-    ['GradeOut', ['passed', 'score', 'headline', 'what_happened', 'test_results', 'mastery_delta']],
+    ['GradeOut', ['passed', 'score', 'headline', 'what_happened', 'test_results', 'mastery_delta', 'figures']],
     ['DailySlotOut', ['slot', 'kind', 'title', 'reason', 'tier', 'ref_type', 'ref_slug']],
     ['RetentionDashboardOut', ['overall_retention', 'concepts_due', 'alerts', 'forecast', 'by_skill']],
     ['InterviewFeedbackOut', ['score', 'dimension_scores', 'interviewer_reaction', 'level_gap']],

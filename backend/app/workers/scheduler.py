@@ -215,7 +215,7 @@ async def run_job(job: Job, stop: asyncio.Event) -> None:
 
 async def main() -> None:
     configure_logging(settings.log_level, settings.log_json)
-    log.info("worker.starting", jobs=[j.name for j in JOBS])
+    log.info("worker.starting", jobs=[j.name for j in JOBS], queue=settings.queue_backend)
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
@@ -227,6 +227,28 @@ async def main() -> None:
             loop.add_signal_handler(sig, stop.set)
 
     tasks = [asyncio.create_task(run_job(job, stop), name=job.name) for job in JOBS]
+
+    # ── The event consumer, when the broker is external ──────────────────────
+    # With QUEUE_BACKEND=memory the queue lives inside the API process and the
+    # API consumes it; this process cannot see it and must not pretend to. With
+    # servicebus the broker is shared, so the worker is the right consumer —
+    # it already has a database session pool and no request latency to protect.
+    if settings.queue_backend == "servicebus":
+        import app.queue.handlers  # noqa: F401  (registers the handlers)
+        from app.queue import get_queue
+        from app.queue.consumer import run_servicebus_consumer
+
+        tasks.append(
+            asyncio.create_task(run_servicebus_consumer(get_queue(), stop), name="event-consumer")
+        )
+        log.info("worker.consumer_started", backend="servicebus")
+    else:
+        log.info(
+            "worker.consumer_skipped",
+            backend=settings.queue_backend,
+            reason="in-process queue is consumed by the API",
+        )
+
     try:
         await stop.wait()
     except (KeyboardInterrupt, asyncio.CancelledError):
@@ -236,6 +258,10 @@ async def main() -> None:
         for task in tasks:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
+        if settings.queue_backend == "servicebus":
+            from app.queue import get_queue
+
+            await get_queue().close()
         await dispose_engine()
         log.info("worker.stopped")
 

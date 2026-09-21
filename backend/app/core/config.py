@@ -26,6 +26,8 @@ REPO_ROOT = BACKEND_ROOT.parent
 
 AppEnv = Literal["development", "test", "production"]
 SandboxMode = Literal["subprocess", "docker", "remote", "disabled"]
+StorageBackend = Literal["local", "blob"]
+QueueBackend = Literal["memory", "servicebus"]
 LLMProvider = Literal["mock", "anthropic", "openai", "gemini", "google"]
 EmbeddingProviderName = Literal["hash", "gemini", "google", "openai"]
 
@@ -74,6 +76,24 @@ class Settings(BaseSettings):
     sandbox_max_concurrency: int = 4
     #: Only used by SANDBOX_MODE=remote. Empty means the split is not deployed.
     sandbox_service_url: str = ""
+    # --- Storage -----------------------------------------------------------
+    #: "local" is the default on purpose: the zero-setup path must not need an
+    #: emulator running. "blob" targets Azurite locally.
+    storage_backend: StorageBackend = "local"
+    local_storage_path: str = str(BACKEND_ROOT / "var" / "artifacts")
+    blob_connection_string: str = ""
+    blob_container: str = "artifacts"
+
+    # --- Queue -------------------------------------------------------------
+    #: "memory" runs handlers in-process. "servicebus" targets the local
+    #: Service Bus emulator. Same reasoning as storage: the default needs
+    #: nothing running.
+    queue_backend: QueueBackend = "memory"
+    servicebus_connection_string: str = ""
+    servicebus_queue: str = "aiforge-events"
+    #: How many times a failing message is retried before dead-lettering.
+    queue_max_delivery_attempts: int = 3
+
     #: Shared secret for the sandbox service. The sandbox executes hostile code,
     #: so it must not be callable by anything except the game server.
     sandbox_service_token: str = ""

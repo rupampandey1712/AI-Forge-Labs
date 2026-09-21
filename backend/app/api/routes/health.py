@@ -86,6 +86,8 @@ async def info() -> dict[str, Any]:
         "environment": settings.app_env,
         "database_dialect": "sqlite" if settings.is_sqlite else "postgresql",
         "sandbox_mode": settings.sandbox_mode,
+        "storage_backend": settings.storage_backend,
+        "queue_backend": settings.queue_backend,
         "llm_provider": settings.llm_provider,
         "llm_configured": settings.llm_configured,
         "api_prefix": settings.api_v1_prefix,

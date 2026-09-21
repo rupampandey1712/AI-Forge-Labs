@@ -225,6 +225,10 @@ class GradeOut(Schema):
     missing_points: list[str] = Field(default_factory=list)
     detected_mistakes: list[dict[str, Any]] = Field(default_factory=list)
     speedup_factor: float | None = None
+    #: URLs of any matplotlib figures the submission produced. Stored during
+    #: the request rather than on the queue: the player is looking at this
+    #: response, so a plot they cannot see yet is a plot they think failed.
+    figures: list[str] = Field(default_factory=list)
 
     progression: dict[str, Any] | None = None
     mastery_delta: dict[str, Any] | None = None

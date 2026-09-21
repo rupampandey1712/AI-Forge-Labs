@@ -32,6 +32,7 @@ deliberate attacks noisy.
 
 from __future__ import annotations
 
+import base64
 import builtins
 import contextlib
 import io
@@ -125,6 +126,15 @@ def _scrub_environment() -> None:
         "VECLIB_MAXIMUM_THREADS",
     ):
         os.environ[variable] = "1"
+
+    # matplotlib writes a font cache on first import and looks for HOME to
+    # decide where. The scrub above removed HOME, so without this it prints a
+    # multi-line warning into the player's stderr about a problem they did not
+    # cause and cannot fix — noise in the one channel that should only ever
+    # carry their own output. Agg because there is no display, and never will
+    # be one.
+    os.environ.setdefault("MPLBACKEND", "Agg")
+    os.environ["MPLCONFIGDIR"] = os.path.join(os.getcwd(), ".mplconfig")
 
 
 def _disable_network() -> None:
@@ -320,6 +330,63 @@ def _benchmark(code: str, namespace: dict[str, Any], repeat: int) -> float | Non
     return round(best * 1000, 4)
 
 
+#: A captured figure is returned inline, so it is bounded hard. 2MB of base64
+#: is roughly a 1.5MB PNG — far more than a matplotlib chart needs, and small
+#: enough that a submission cannot use figures as a channel for bulk data.
+MAX_FIGURE_BYTES = 2 * 1024 * 1024
+MAX_FIGURES = 4
+
+
+def _capture_figures() -> list[dict[str, Any]]:
+    """Serialise any matplotlib figures the submission left open.
+
+    WHY THE SANDBOX RETURNS BYTES RATHER THAN UPLOADING THEM: it has no network
+    and no credentials, by design. Giving it a storage connection string to
+    write a PNG would hand the one process that runs hostile code a writable
+    path out of its own jail. So figures travel back over the existing result
+    protocol and the game server stores them.
+
+    Failing to capture is never fatal. A challenge that produced a correct
+    answer and an unserialisable figure has still passed, and turning that into
+    a sandbox error would fail the player for our problem.
+    """
+    if "matplotlib" not in sys.modules:
+        return []
+    try:
+        import matplotlib.pyplot as plt
+    except Exception:
+        return []
+
+    figures: list[dict[str, Any]] = []
+    try:
+        numbers = list(plt.get_fignums())[:MAX_FIGURES]
+    except Exception:
+        return []
+
+    for number in numbers:
+        try:
+            figure = plt.figure(number)
+            buffer = io.BytesIO()
+            figure.savefig(buffer, format="png", dpi=96, bbox_inches="tight")
+            raw = buffer.getvalue()
+            if not raw or len(raw) > MAX_FIGURE_BYTES:
+                continue
+            figures.append(
+                {
+                    "index": number,
+                    "format": "png",
+                    "bytes": len(raw),
+                    "data": base64.b64encode(raw).decode("ascii"),
+                }
+            )
+        except Exception:
+            continue
+
+    with contextlib.suppress(Exception):
+        plt.close("all")
+    return figures
+
+
 def main() -> int:
     raw = sys.stdin.read()
     try:
@@ -378,6 +445,11 @@ def main() -> int:
                     )
             except BaseException as exc:
                 result["stderr"] += f"\n[benchmark failed] {type(exc).__name__}: {exc}"
+
+    # Captured before the timing is finalised so that savefig's cost is not
+    # attributed to the player's code — the benchmark challenges compare these
+    # numbers, so a stray 40ms of PNG encoding would be a measurement bug.
+    result["figures"] = _capture_figures()
 
     result["duration_ms"] = round((time.perf_counter() - started) * 1000, 3)
     out, truncated_out = _truncate(stdout_buf.getvalue(), max_output)

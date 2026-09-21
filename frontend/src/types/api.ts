@@ -384,6 +384,8 @@ export interface Grade {
   missing_points: string[];
   detected_mistakes: DetectedMistake[];
   speedup_factor: number | null;
+  /** API paths for any matplotlib figures the submission produced. */
+  figures: string[];
   progression: Progression | null;
   mastery_delta: Record<string, MasteryDelta> | null;
   next_review_at: string | null;

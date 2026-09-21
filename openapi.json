@@ -1986,6 +1986,13 @@
             ],
             "title": "Explanation Score"
           },
+          "figures": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Figures",
+            "type": "array"
+          },
           "headline": {
             "default": "",
             "title": "Headline",
@@ -6131,6 +6138,54 @@
         "summary": "Analytics Retention",
         "tags": [
           "gameplay"
+        ]
+      }
+    },
+    "/api/v1/artifacts/{key}": {
+      "get": {
+        "description": "Return one stored artifact.\n\nOwnership is enforced by the key layout: every key produced by this\napplication is `<kind>/<profile_id>/...`, so a key whose second segment is\nnot the caller's profile is someone else's and is refused. This is checked\n*before* touching storage \u2014 a 404 that only appears after a successful read\nstill tells the caller the object exists.",
+        "operationId": "get_artifact_api_v1_artifacts__key__get",
+        "parameters": [
+          {
+            "description": "Storage key, e.g. figures/<profile>/<challenge>/<hash>.png",
+            "in": "path",
+            "name": "key",
+            "required": true,
+            "schema": {
+              "description": "Storage key, e.g. figures/<profile>/<challenge>/<hash>.png",
+              "title": "Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Get Artifact",
+        "tags": [
+          "artifacts"
         ]
       }
     },

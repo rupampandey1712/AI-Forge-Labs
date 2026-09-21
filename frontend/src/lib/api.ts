@@ -387,6 +387,28 @@ export const api = {
 
   // The labs are instruments: every call returns the intermediates, so these
   // are grouped by the tower they belong to rather than by HTTP shape.
+  artifacts: {
+    /**
+     * Fetch a stored artifact as an object URL.
+     *
+     * WHY NOT just `<img src={url}>`: the artifact route is authenticated, so
+     * a bare img tag sends no Authorization header and gets a 401. This fetches
+     * through the same client that handles token refresh, then hands back a
+     * blob URL the img tag can use.
+     *
+     * The caller MUST revokeObjectURL when the image unmounts — every object
+     * URL pins its blob in memory until it is revoked, and a workbench session
+     * that renders fifty plots would hold all fifty.
+     */
+    async objectUrl(path: string): Promise<string> {
+      const response = await fetch(path, {
+        headers: tokens.access() ? { Authorization: `Bearer ${tokens.access()}` } : {},
+      });
+      if (!response.ok) throw new ApiRequestError(response.status, 'artifact_failed', 'Could not load artifact.');
+      return URL.createObjectURL(await response.blob());
+    },
+  },
+
   labs: {
     status: () => request<LabStatus>('/labs/status'),
 

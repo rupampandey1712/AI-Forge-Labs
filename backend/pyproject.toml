@@ -41,6 +41,17 @@ ml = [
   "scikit-learn>=1.5",
   "torch>=2.4",
 ]
+# Azurite and the Service Bus emulator. Optional so the zero-setup path never
+# downloads a cloud SDK to run a game that, for it, writes to a directory and
+# dispatches in-process.
+azure = [
+  "azure-storage-blob>=12.23",
+  "azure-servicebus>=7.12",
+  # The azure SDKs' *async* clients need an async transport and do not pull one
+  # in themselves. Without it the client constructs fine and fails on first use
+  # with "Unable to create async transport", which reads like a service outage.
+  "aiohttp>=3.10",
+]
 ai = [
   "langchain>=0.3",
   "langchain-core>=0.3",
@@ -49,6 +60,10 @@ ai = [
   "anthropic>=0.39",
 ]
 dev = [
+  # The subprocess sandbox runs in *this* interpreter, so the data-viz
+  # challenges and their figure capture are only testable locally if
+  # matplotlib is here as well as in the sandbox image.
+  "matplotlib>=3.9",
   "pytest>=8.3",
   "pytest-asyncio>=0.24",
   "pytest-cov>=5.0",
