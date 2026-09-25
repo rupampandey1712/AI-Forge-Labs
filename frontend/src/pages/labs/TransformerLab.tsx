@@ -268,9 +268,9 @@ function AttentionPanel() {
                 <motion.div variants={fadeUp}>
                   <Readout
                     label="Row sum"
-                    value={activeHead.weights[0]
-                      ?.reduce((a, b) => a + b, 0)
-                      .toFixed(3)}
+                    value={
+                      activeHead.weights[0]?.reduce((a, b) => a + b, 0).toFixed(3) ?? '—'
+                    }
                     hint="Must be 1.000 — every row is a probability distribution over which tokens to look at."
                   />
                 </motion.div>
@@ -572,8 +572,8 @@ function SamplingPanel() {
               >
                 <div className="flex h-56 items-end gap-2">
                   {data.labels.map((label, index) => {
-                    const probability = data.final_probabilities[index];
-                    const before = data.probabilities[index];
+                    const probability = data.final_probabilities[index] ?? 0;
+                    const before = data.probabilities[index] ?? 0;
                     const kept = data.kept[index];
                     return (
                       <div key={label} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">

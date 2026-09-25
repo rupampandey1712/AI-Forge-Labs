@@ -345,16 +345,20 @@ function MetricComparison({
           animate="show"
           className="grid grid-cols-2 gap-3"
         >
-          {HEADLINE.filter((key) => latest.metrics[key] !== undefined).map((key) => (
-            <motion.div key={key} variants={fadeUp}>
-              <Readout
-                label={key.replace(/_at_k$/, '@k').replace(/_/g, ' ')}
-                value={latest.metrics[key].toFixed(3)}
-                delta={baseline ? latest.metrics[key] - (baseline.metrics[key] ?? 0) : undefined}
-                hint={METRIC_HELP[key]}
-              />
-            </motion.div>
-          ))}
+          {HEADLINE.map((key) => {
+            const value = latest.metrics[key];
+            if (value === undefined) return null;
+            return (
+              <motion.div key={key} variants={fadeUp}>
+                <Readout
+                  label={key.replace(/_at_k$/, '@k').replace(/_/g, ' ')}
+                  value={value.toFixed(3)}
+                  delta={baseline ? value - (baseline.metrics[key] ?? 0) : undefined}
+                  hint={METRIC_HELP[key]}
+                />
+              </motion.div>
+            );
+          })}
         </motion.div>
       </Card>
 

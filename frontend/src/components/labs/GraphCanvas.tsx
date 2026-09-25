@@ -51,9 +51,13 @@ function layout(diagram: GraphDiagram): { nodes: Placed[]; width: number; height
   // A back-edge is one whose target we have already reached; detecting them by
   // BFS order is enough here and avoids a second traversal.
   const order = new Map<string, number>();
-  const queue = [diagram.entry ?? ids[0]];
+  const queue: string[] = [];
+  const start = diagram.entry ?? ids[0];
+  if (start !== undefined) {
+    queue.push(start);
+    order.set(start, 0);
+  }
   let cursor = 0;
-  order.set(queue[0], 0);
   while (cursor < queue.length) {
     const current = queue[cursor++];
     for (const edge of diagram.edges.filter((e) => e.source === current)) {

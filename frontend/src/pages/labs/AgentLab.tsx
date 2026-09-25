@@ -53,7 +53,8 @@ export default function AgentLab() {
   const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!selected && graphs?.length) setSelected(graphs[0].slug);
+    const first = graphs?.[0];
+    if (!selected && first) setSelected(first.slug);
   }, [graphs, selected]);
 
   return (

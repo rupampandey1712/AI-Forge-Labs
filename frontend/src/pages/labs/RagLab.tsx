@@ -395,13 +395,15 @@ function MetricsRow({ metrics }: { metrics: Record<string, number> }) {
       animate="show"
       className="grid grid-cols-2 gap-3 md:grid-cols-4"
     >
-      {shown
-        .filter(([key]) => metrics[key] !== undefined)
-        .map(([key, label, good, hint]) => (
+      {shown.map(([key, label, good, hint]) => {
+        const value = metrics[key];
+        if (value === undefined) return null;
+        return (
           <motion.div key={key} variants={fadeUp}>
-            <Readout label={label} value={metrics[key].toFixed(3)} good={good} hint={hint} />
+            <Readout label={label} value={value.toFixed(3)} good={good} hint={hint} />
           </motion.div>
-        ))}
+        );
+      })}
     </motion.div>
   );
 }
