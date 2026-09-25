@@ -7,7 +7,6 @@ name = "aiforge-backend"
 version = "0.1.0"
 description = "AI Forge Labs â€” Python & AI Engineering RPG backend"
 requires-python = ">=3.12"
-readme = "../README.md"
 
 # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # WHY the split: the web/game core must install in seconds so CI and a first
