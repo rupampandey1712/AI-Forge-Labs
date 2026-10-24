@@ -22,6 +22,7 @@ from fastapi import Depends, Header, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.middleware import client_address
 from app.core.errors import AuthenticationError, PermissionDeniedError
 from app.core.logging import user_id_ctx
 from app.core.security import decode_token
@@ -181,12 +182,9 @@ SandboxSvc = Annotated[SandboxService, Depends(sandbox_service)]
 def client_ip(request: Request) -> str:
     """Best-effort client IP for rate limiting.
 
-    ``X-Forwarded-For`` is trusted here because the deployment puts this behind
-    a reverse proxy. If it were exposed directly, trusting that header would let
-    anyone forge their identity for rate-limit purposes — noted because the
+    ``X-Forwarded-For`` is honoured only when ``TRUST_FORWARDED_FOR`` is set
+    (a reverse proxy in front overwrites it). Trusting it unconditionally would
+    let anyone forge their identity for rate-limit purposes — noted because the
     Security missions ask exactly this.
     """
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    return client_address(request)

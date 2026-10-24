@@ -28,6 +28,21 @@ Handler = Callable[[Request], Awaitable[Response]]
 QUIET_PATHS = frozenset({"/api/v1/health/live", "/api/v1/health/ready", "/metrics", "/favicon.ico"})
 
 
+def client_address(request: Request) -> str:
+    """The client IP used for rate limiting.
+
+    ``X-Forwarded-For`` is honoured only when ``TRUST_FORWARDED_FOR`` is set,
+    i.e. a reverse proxy in front is known to overwrite it. Trusting it
+    unconditionally lets any client choose its own identity and get a fresh
+    rate-limit bucket on every request.
+    """
+    if settings.trust_forwarded_for:
+        forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        if forwarded:
+            return forwarded
+    return request.client.host if request.client else "unknown"
+
+
 class RequestContextMiddleware(BaseHTTPMiddleware):
     """Assign a request ID, time the request, and emit one structured access log."""
 
@@ -105,21 +120,30 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     Backend City missions have the player build exactly that.
     """
 
+    #: Above this many tracked clients, idle windows are swept so a flood of
+    #: distinct addresses cannot grow the table without bound.
+    SWEEP_THRESHOLD = 10_000
+
     def __init__(self, app, limit_per_minute: int = 240) -> None:
         super().__init__(app)
         self.limit = limit_per_minute
         self._hits: dict[str, deque[float]] = defaultdict(deque)
 
+    def _sweep(self, cutoff: float) -> None:
+        stale = [k for k, w in self._hits.items() if not w or w[-1] < cutoff]
+        for k in stale:
+            del self._hits[k]
+
     async def dispatch(self, request: Request, call_next: Handler) -> Response:
         if request.url.path in QUIET_PATHS or request.method == "OPTIONS":
             return await call_next(request)
 
-        key = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (
-            request.client.host if request.client else "unknown"
-        )
+        key = client_address(request)
         now = time.monotonic()
-        window = self._hits[key]
         cutoff = now - 60.0
+        if len(self._hits) > self.SWEEP_THRESHOLD:
+            self._sweep(cutoff)
+        window = self._hits[key]
         while window and window[0] < cutoff:
             window.popleft()
 

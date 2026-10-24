@@ -92,10 +92,11 @@ services:
       CORS_ORIGINS: http://localhost:5173,http://localhost
       LOG_JSON: "true"
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      # subprocess by default so the stack runs without the sandbox image
-      # built. Switch to `docker` (and mount the socket below) for real
-      # isolation — see infra/docker/sandbox.Dockerfile.
-      SANDBOX_MODE: ${SANDBOX_MODE:-subprocess}
+      # Code execution is off by default here: this service runs with
+      # APP_ENV=production, which refuses the in-process `subprocess` sandbox
+      # (it runs player code on the API host). For code labs use the `split`
+      # profile below, or `docker` with the socket mounted (see the warning).
+      SANDBOX_MODE: ${SANDBOX_MODE:-disabled}
       SANDBOX_DOCKER_IMAGE: aiforge-sandbox:latest
       LLM_PROVIDER: ${LLM_PROVIDER:-mock}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}

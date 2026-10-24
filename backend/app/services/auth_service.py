@@ -11,6 +11,9 @@ SECURITY decisions worth naming, because the game teaches them:
   old ``jti``. A stolen refresh token is then usable at most once, and the
   legitimate client's next refresh fails loudly instead of silently sharing
   the session.
+* **Per-identifier lockout.** After ``LOGIN_MAX_FAILURES`` wrong passwords an
+  identifier is refused for ``LOGIN_LOCKOUT_SECONDS``. Unknown identifiers are
+  counted too, so the lockout itself is not an enumeration oracle.
 """
 
 from __future__ import annotations
@@ -21,8 +24,9 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import get_cache
 from app.core.config import settings
-from app.core.errors import AuthenticationError, ConflictError, NotFoundError
+from app.core.errors import AuthenticationError, ConflictError, NotFoundError, RateLimitedError
 from app.core.logging import get_logger
 from app.core.security import (
     create_token,
@@ -43,6 +47,17 @@ log = get_logger(__name__)
 #: A real bcrypt hash of a value nobody can supply. Verifying against it burns
 #: the same ~250ms as a genuine check, which is the whole point.
 _DUMMY_HASH = hash_password("$aiforge-timing-equaliser$never-a-real-password$")
+
+
+def _failures_key(identifier: str) -> str:
+    return f"auth:login-failures:{identifier.strip().lower()}"
+
+
+def _as_int(value: str | None) -> int:
+    try:
+        return int(value) if value is not None else 0
+    except ValueError:
+        return 0
 
 
 class AuthService:
@@ -98,13 +113,24 @@ class AuthService:
         return profile
 
     async def login(self, payload: LoginRequest, *, user_agent: str | None = None) -> AuthResponse:
+        failures_key = _failures_key(payload.identifier)
+        cache = get_cache()
+        failures = _as_int(await cache.get(failures_key))
+        if failures >= settings.login_max_failures:
+            log.warning("auth.login_locked", failures=failures)
+            raise RateLimitedError("Too many failed sign-in attempts. Try again later.")
+
         user = await self.users.get_by_identifier(payload.identifier)
         if user is None:
             verify_password(payload.password, _DUMMY_HASH)  # equalise timing
+            await cache.set(failures_key, str(failures + 1), ttl_seconds=settings.login_lockout_seconds)
             raise AuthenticationError("Incorrect credentials.")
         if not verify_password(payload.password, user.hashed_password):
             log.warning("auth.login_failed", user_id=str(user.id))
+            await cache.set(failures_key, str(failures + 1), ttl_seconds=settings.login_lockout_seconds)
             raise AuthenticationError("Incorrect credentials.")
+        if failures:
+            await cache.delete(failures_key)
         if not user.is_active:
             raise AuthenticationError("This account is disabled.")
 

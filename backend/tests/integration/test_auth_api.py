@@ -96,6 +96,53 @@ class TestLogin:
         assert wrong.status_code == missing.status_code == 401
         assert wrong.json()["error"] == missing.json()["error"]
 
+    async def test_identifier_is_locked_after_repeated_failures(self, seeded_client, api):
+        """Even the right password is refused once the failure budget is spent."""
+        from app.core.config import settings
+
+        await register(seeded_client, api)
+        for _ in range(settings.login_max_failures):
+            wrong = await seeded_client.post(
+                f"{api}/auth/login", json={"identifier": "newplayer", "password": "nope"}
+            )
+            assert wrong.status_code == 401
+        locked = await seeded_client.post(
+            f"{api}/auth/login",
+            json={"identifier": "NewPlayer", "password": "Str0ng-Passphrase!"},
+        )
+        assert locked.status_code == 429
+        assert locked.json()["error"]["code"] == "rate_limited"
+
+    async def test_unknown_identifiers_lock_the_same_way(self, seeded_client, api):
+        """Otherwise the lockout itself would reveal which accounts exist."""
+        from app.core.config import settings
+
+        for _ in range(settings.login_max_failures):
+            await seeded_client.post(
+                f"{api}/auth/login", json={"identifier": "ghost@test.dev", "password": "nope"}
+            )
+        locked = await seeded_client.post(
+            f"{api}/auth/login", json={"identifier": "ghost@test.dev", "password": "nope"}
+        )
+        assert locked.status_code == 429
+
+    async def test_successful_login_resets_the_failure_count(self, seeded_client, api):
+        from app.core.config import settings
+
+        await register(seeded_client, api)
+        for _ in range(settings.login_max_failures - 1):
+            await seeded_client.post(
+                f"{api}/auth/login", json={"identifier": "newplayer", "password": "nope"}
+            )
+        ok = await seeded_client.post(
+            f"{api}/auth/login", json={"identifier": "newplayer", "password": "Str0ng-Passphrase!"}
+        )
+        assert ok.status_code == 200
+        again = await seeded_client.post(
+            f"{api}/auth/login", json={"identifier": "newplayer", "password": "nope"}
+        )
+        assert again.status_code == 401, "the earlier failures should have been cleared"
+
 
 class TestTokens:
     async def test_protected_route_requires_a_token(self, seeded_client, api):

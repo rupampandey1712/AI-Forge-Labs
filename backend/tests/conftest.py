@@ -50,6 +50,17 @@ def _test_settings():
     get_settings.cache_clear()
 
 
+@pytest.fixture(autouse=True)
+def _fresh_cache():
+    """Each test gets an empty cache, so state such as login-failure counters
+    cannot leak from one test into the next."""
+    from app.core.cache import get_cache
+
+    get_cache.cache_clear()
+    yield
+    get_cache.cache_clear()
+
+
 @pytest.fixture
 async def engine():
     # StaticPool keeps ONE connection, so the schema created here is visible to

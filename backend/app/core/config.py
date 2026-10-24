@@ -18,7 +18,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, computed_field, field_validator
+from pydantic import Field, computed_field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     # --- HTTP --------------------------------------------------------------
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     rate_limit_per_minute: int = 240
+    #: Trust the first X-Forwarded-For hop as the client address. Only safe when
+    #: a reverse proxy in front always overwrites the header; otherwise any
+    #: client can pick its own address and walk around the rate limit.
+    trust_forwarded_for: bool = False
+    #: Failed sign-ins allowed per identifier before it is locked for
+    #: ``login_lockout_seconds``. Per-IP limits alone do not stop a botnet.
+    login_max_failures: int = 5
+    login_lockout_seconds: int = 900
 
     # --- Sandbox -----------------------------------------------------------
     sandbox_mode: SandboxMode = "subprocess"
@@ -146,6 +154,26 @@ class Settings(BaseSettings):
                 'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(64))"'
             )
         return v
+
+    @model_validator(mode="after")
+    def _reject_in_process_sandbox_in_prod(self) -> Settings:
+        # The subprocess backend runs player code on the API host itself; its
+        # own docstring says it is not a security boundary. Production must
+        # isolate it (docker/remote) or turn code execution off.
+        if self.app_env == "production" and self.sandbox_mode == "subprocess":
+            raise ValueError(
+                "SANDBOX_MODE=subprocess is not allowed in production. "
+                "Use 'docker', 'remote' or 'disabled'."
+            )
+        if (
+            self.app_env == "production"
+            and self.sandbox_mode == "remote"
+            and (len(self.sandbox_service_token) < 32 or "change-me" in self.sandbox_service_token)
+        ):
+            raise ValueError(
+                "SANDBOX_SERVICE_TOKEN must be a strong, non-default value (32+ characters) in production."
+            )
+        return self
 
     @field_validator("log_level")
     @classmethod
